@@ -1,0 +1,2015 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QLR · Quản lý dữ liệu rừng &amp; Carbon — Web Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<!-- Supabase Web SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase_config.js"></script>
+<style>
+:root{
+  --primary:#107C41; --primary-dark:#0A5C30; --primary-mid:#1A9E54; --primary-light:#E8F5EE;
+  --accent:#34D399; --amber:#F59E0B; --red:#DC2626; --blue:#2563EB;
+  --bg:#F4F7F5; --surface:#FFFFFF; --surface-2:#F1F5F2;
+  --text:#0F2418; --text-2:#5B6B63; --text-hint:#9AA8A1; --border:#E4EAE6;
+  --r-sm:8px; --r-md:12px; --r-lg:16px; --r-xl:20px;
+  --shadow:0 1px 2px rgba(16,28,20,.04), 0 4px 16px rgba(16,28,20,.04);
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--text); font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;}
+.mono{font-family:'JetBrains Mono',monospace;}
+a{color:inherit;}
+button{font-family:inherit; cursor:pointer;}
+::-webkit-scrollbar{width:8px; height:8px;}
+::-webkit-scrollbar-thumb{background:#CBD5CE; border-radius:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+
+/* ========== LOGIN VIEW ========== */
+.login-view{
+  min-height:100vh; display:flex; align-items:center; justify-content:center;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(255,255,255,.06) 0, transparent 35%),
+    radial-gradient(circle at 85% 80%, rgba(255,255,255,.05) 0, transparent 40%),
+    linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  padding:24px;
+}
+.login-card{
+  width:100%; max-width:420px; background:var(--surface); border-radius:var(--r-xl);
+  padding:36px 32px; box-shadow:0 20px 60px rgba(0,0,0,.25);
+}
+.login-logo{
+  width:56px; height:56px; border-radius:16px; display:flex; align-items:center; justify-content:center;
+  background:linear-gradient(135deg, var(--primary), var(--primary-dark)); margin:0 auto 16px;
+  font-size:28px;
+}
+.login-title{text-align:center; font-size:22px; font-weight:800; color:var(--primary-dark); letter-spacing:-.3px;}
+.login-sub{text-align:center; font-size:12.5px; color:var(--text-2); margin-top:4px; margin-bottom:28px;}
+.field{margin-bottom:14px;}
+.field label{display:block; font-size:12.5px; font-weight:600; color:var(--text); margin-bottom:6px;}
+.field input, .field select, .field textarea{
+  width:100%; padding:11px 14px; border:1.5px solid var(--border); border-radius:var(--r-md);
+  font-size:13.5px; font-family:inherit; color:var(--text); background:var(--surface);
+  transition:border-color .15s;
+}
+.field input:focus, .field select:focus, .field textarea:focus{outline:none; border-color:var(--primary);}
+.field-row{display:flex; gap:10px;}
+.field-row .field{flex:1;}
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  padding:11px 18px; border-radius:var(--r-md); font-size:13.5px; font-weight:600;
+  border:1.5px solid transparent; transition:all .15s; white-space:nowrap;
+}
+.btn-primary{background:var(--primary); color:#fff;}
+.btn-primary:hover{background:var(--primary-dark);}
+.btn-outline{background:transparent; border-color:var(--border); color:var(--text);}
+.btn-outline:hover{border-color:var(--primary); color:var(--primary);}
+.btn-danger-outline{background:transparent; border-color:var(--red); color:var(--red);}
+.btn-danger-outline:hover{background:rgba(220,38,38,.06);}
+.btn-block{width:100%;}
+.btn-sm{padding:6px 12px; font-size:12px;}
+.btn-icon{padding:8px; border-radius:var(--r-sm);}
+.demo-row{display:flex; gap:8px; margin-top:18px; flex-wrap:wrap; justify-content:center;}
+.demo-chip{
+  font-size:12px; font-weight:600; padding:7px 14px; border-radius:20px;
+  background:var(--primary-light); color:var(--primary-dark); border:1px solid rgba(16,124,65,.18);
+}
+.demo-chip:hover{background:#d8efe2;}
+.login-error{
+  background:#FEF2F2; color:var(--red); border:1px solid #FCA5A5; border-radius:var(--r-md);
+  padding:10px 14px; font-size:12.5px; margin-bottom:14px; display:none;
+}
+
+/* ========== APP SHELL ========== */
+.app-view{display:flex; min-height:100vh;}
+.sidebar{
+  width:248px; background:var(--primary-dark); color:#fff; flex-shrink:0;
+  display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto;
+}
+.sidebar-brand{display:flex; align-items:center; gap:10px; padding:20px 18px; border-bottom:1px solid rgba(255,255,255,.08);}
+.sidebar-brand .logo{width:34px; height:34px; border-radius:10px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; font-size:18px;}
+.sidebar-brand .name{font-weight:800; font-size:14.5px; line-height:1.2;}
+.sidebar-brand .sub{font-size:10.5px; color:rgba(255,255,255,.55); margin-top:1px;}
+.sidebar-nav{flex:1; padding:10px;}
+.nav-section-label{font-size:10.5px; font-weight:700; color:rgba(255,255,255,.4); text-transform:uppercase; letter-spacing:.06em; padding:14px 12px 6px;}
+.nav-item{
+  display:flex; align-items:center; gap:11px; padding:10px 12px; border-radius:10px;
+  color:rgba(255,255,255,.72); font-size:13px; font-weight:500; cursor:pointer; margin-bottom:2px;
+  transition:background .12s, color .12s;
+}
+.nav-item .ic{font-size:16px; width:18px; text-align:center;}
+.nav-item:hover{background:rgba(255,255,255,.06); color:#fff;}
+.nav-item.active{background:var(--primary); color:#fff; font-weight:600;}
+.nav-item .badge-count{
+  margin-left:auto; background:var(--amber); color:#1a1a1a; font-size:10px; font-weight:700;
+  border-radius:10px; padding:1px 6px; min-width:18px; text-align:center;
+}
+.sidebar-foot{padding:14px; border-top:1px solid rgba(255,255,255,.08); font-size:11px; color:rgba(255,255,255,.4);}
+
+.main{flex:1; min-width:0; display:flex; flex-direction:column;}
+.topbar{
+  background:var(--surface); border-bottom:1px solid var(--border); padding:14px 28px;
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
+  position:sticky; top:0; z-index:20;
+}
+.topbar-title{font-size:18px; font-weight:800; color:var(--text);}
+.topbar-sub{font-size:12px; color:var(--text-2); margin-top:1px;}
+.topbar-right{display:flex; align-items:center; gap:14px;}
+.icon-btn{
+  width:36px; height:36px; border-radius:10px; border:1px solid var(--border); background:var(--surface);
+  display:flex; align-items:center; justify-content:center; font-size:16px; position:relative;
+}
+.icon-btn .dot{position:absolute; top:6px; right:6px; width:8px; height:8px; border-radius:50%; background:var(--red); border:1.5px solid #fff;}
+.user-chip{display:flex; align-items:center; gap:10px; padding:6px 12px 6px 6px; border-radius:30px; border:1px solid var(--border); background:var(--surface);}
+.user-chip .avatar{width:30px; height:30px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px;}
+.user-chip .meta{line-height:1.25;}
+.user-chip .meta .name{font-size:12.5px; font-weight:700;}
+.user-chip .meta .role{font-size:10.5px; color:var(--text-2);}
+
+.content{padding:24px 28px; max-width:1440px; width:100%;}
+.page-head{display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap;}
+.page-head h1{font-size:20px; font-weight:800;}
+.page-head p{font-size:12.5px; color:var(--text-2); margin-top:3px;}
+.toolbar{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+.search-box{display:flex; align-items:center; gap:8px; background:var(--surface); border:1.5px solid var(--border); border-radius:var(--r-md); padding:9px 14px; min-width:220px;}
+.search-box input{border:none; outline:none; font-size:13px; width:100%; font-family:inherit; background:transparent;}
+.select-sm{padding:9px 12px; border:1.5px solid var(--border); border-radius:var(--r-md); font-size:13px; font-family:inherit; background:var(--surface); color:var(--text);}
+
+/* Grid helpers */
+.grid{display:grid; gap:16px;}
+.grid-2{grid-template-columns:repeat(2,1fr);}
+.grid-3{grid-template-columns:repeat(3,1fr);}
+.grid-4{grid-template-columns:repeat(4,1fr);}
+.grid-5{grid-template-columns:repeat(5,1fr);}
+.col-span-2{grid-column:span 2;}
+@media(max-width:1200px){.grid-5{grid-template-columns:repeat(3,1fr);} .grid-4{grid-template-columns:repeat(2,1fr);}}
+
+/* Cards */
+.card{background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:18px; box-shadow:var(--shadow);}
+.card-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;}
+.card-head h3{font-size:14px; font-weight:700;}
+.card-head .link{font-size:12px; color:var(--primary); font-weight:600;}
+
+/* KPI cards */
+.kpi{display:flex; flex-direction:column; gap:8px;}
+.kpi .kpi-top{display:flex; align-items:center; justify-content:space-between;}
+.kpi .ic-wrap{width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px;}
+.kpi .value{font-size:24px; font-weight:800; letter-spacing:-.5px;}
+.kpi .label{font-size:12px; color:var(--text-2);}
+.kpi .delta{font-size:11px; font-weight:700; display:flex; align-items:center; gap:3px;}
+.delta.up{color:var(--primary);} .delta.down{color:var(--red);}
+
+/* Tables */
+.table-wrap{overflow-x:auto;}
+table{width:100%; border-collapse:collapse; font-size:13px;}
+thead th{
+  text-align:left; font-size:11px; font-weight:700; color:var(--text-2); text-transform:uppercase;
+  letter-spacing:.04em; padding:10px 12px; border-bottom:1.5px solid var(--border); white-space:nowrap;
+}
+tbody td{padding:12px; border-bottom:1px solid var(--border); white-space:nowrap;}
+tbody tr:hover{background:var(--surface-2);}
+tbody tr:last-child td{border-bottom:none;}
+.cell-strong{font-weight:700; color:var(--text);}
+.cell-sub{font-size:11.5px; color:var(--text-hint);}
+.row-link{color:var(--primary); font-weight:600; cursor:pointer;}
+.row-link:hover{text-decoration:underline;}
+
+/* Badges */
+.badge{display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700;}
+.badge::before{content:''; width:6px; height:6px; border-radius:50%; background:currentColor;}
+.badge-active{background:rgba(16,185,129,.12); color:#0E9F6E;}
+.badge-inactive{background:rgba(107,114,128,.12); color:#6B7280;}
+.badge-locked{background:rgba(220,38,38,.1); color:var(--red);}
+.badge-draft{background:rgba(245,158,11,.12); color:#B45309;}
+.badge-surveying{background:rgba(37,99,235,.1); color:var(--blue);}
+.badge-suspended{background:rgba(220,38,38,.1); color:var(--red);}
+.badge-pending{background:rgba(245,158,11,.12); color:#B45309;}
+.badge-synced{background:rgba(16,185,129,.12); color:#0E9F6E;}
+.badge-info{background:rgba(37,99,235,.1); color:var(--blue);}
+.badge-neutral{background:var(--surface-2); color:var(--text-2);}
+
+/* Pagination */
+.pagination{display:flex; align-items:center; justify-content:center; gap:6px; margin-top:14px;}
+.page-btn{width:30px; height:30px; border-radius:8px; border:1px solid var(--border); background:var(--surface); font-size:12.5px; display:flex; align-items:center; justify-content:center;}
+.page-btn.active{background:var(--primary); color:#fff; border-color:var(--primary);}
+
+/* Modal */
+.modal-overlay{position:fixed; inset:0; background:rgba(15,36,24,.45); display:flex; align-items:center; justify-content:center; z-index:100; padding:20px;}
+.modal{background:var(--surface); border-radius:var(--r-xl); width:100%; max-width:560px; max-height:90vh; overflow-y:auto; box-shadow:0 24px 60px rgba(0,0,0,.25);}
+.modal-head{display:flex; align-items:center; justify-content:space-between; padding:18px 22px; border-bottom:1px solid var(--border);}
+.modal-head h3{font-size:16px; font-weight:800;}
+.modal-close{width:30px; height:30px; border-radius:8px; border:1px solid var(--border); background:var(--surface); display:flex; align-items:center; justify-content:center; font-size:15px; color:var(--text-2);}
+.modal-body{padding:20px 22px;}
+.modal-foot{padding:16px 22px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px;}
+
+/* Toast */
+.toast{position:fixed; bottom:24px; right:24px; z-index:200; display:flex; flex-direction:column; gap:8px;}
+.toast-item{
+  background:var(--text); color:#fff; padding:12px 18px; border-radius:var(--r-md); font-size:13px; font-weight:600;
+  box-shadow:0 8px 24px rgba(0,0,0,.2); display:flex; align-items:center; gap:10px; min-width:240px;
+  animation:slideIn .25s ease-out;
+}
+.toast-item.success{background:var(--primary-dark);}
+.toast-item.error{background:var(--red);}
+@keyframes slideIn{from{transform:translateX(40px); opacity:0;} to{transform:translateX(0); opacity:1;}}
+
+/* Misc */
+.empty-state{padding:48px 20px; text-align:center; color:var(--text-2);}
+.empty-state .ic{font-size:38px; margin-bottom:10px;}
+.tabs{display:flex; gap:4px; border-bottom:1.5px solid var(--border); margin-bottom:16px;}
+.tab{padding:10px 16px; font-size:13px; font-weight:600; color:var(--text-2); border-bottom:2px solid transparent; cursor:pointer;}
+.tab.active{color:var(--primary); border-color:var(--primary);}
+.thumb-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(70px,1fr)); gap:6px; margin-top:8px;}
+.thumb{aspect-ratio:1; background:var(--surface-2); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--text-hint); border:1px solid var(--border);}
+.detail-panel{display:flex; flex-direction:column; gap:14px;}
+.detail-row{display:flex; justify-content:space-between; font-size:12.5px; padding:7px 0; border-bottom:1px solid var(--border);}
+.detail-row .k{color:var(--text-2);}
+.detail-row .v{font-weight:600; text-align:right;}
+.banner{display:flex; align-items:center; gap:12px; background:var(--primary-light); border:1px solid rgba(16,124,65,.15); border-radius:var(--r-md); padding:12px 16px; font-size:12.5px; color:var(--primary-dark); margin-bottom:16px;}
+.banner .ic{font-size:18px;}
+#map{height:520px; border-radius:var(--r-lg); z-index:1;}
+.legend-item{display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:10px; font-size:12.5px; cursor:pointer;}
+.legend-item:hover{background:var(--surface-2);}
+.legend-dot{width:10px; height:10px; border-radius:50%; flex-shrink:0;}
+</style>
+</head>
+<body>
+
+<!-- ========================= LOGIN VIEW ========================= -->
+<div class="login-view" id="loginView">
+  <div class="login-card">
+    <div class="login-logo">🌲</div>
+    <div class="login-title">QLR Forest Platform</div>
+    <div class="login-sub">Hệ thống Quản lý dữ liệu rừng &amp; Dự án Carbon — Web Dashboard</div>
+
+    <div class="login-error" id="loginError"></div>
+
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="admin@qlr.vn" value="admin@qlr.vn">
+    </div>
+    <div class="field">
+      <label>Mật khẩu</label>
+      <input type="password" id="loginPass" placeholder="••••••••" value="123456">
+    </div>
+    <button class="btn btn-primary btn-block" onclick="login()">🔐 Đăng nhập</button>
+
+    <div style="text-align:center; font-size:11.5px; color:var(--text-2); margin-top:18px; font-weight:600;">TÀI KHOẢN DEMO (PHÂN QUYỀN)</div>
+    <div class="demo-row">
+      <div class="demo-chip" onclick="fillDemo('admin@qlr.vn')">👑 Platform Admin</div>
+      <div class="demo-chip" onclick="fillDemo('owner@qlr.vn')">🌳 Forest Owner</div>
+    </div>
+    <div style="text-align:center; font-size:11px; color:var(--text-hint); margin-top:14px;">Mật khẩu cho mọi tài khoản demo: <b>123456</b></div>
+  </div>
+</div>
+
+<!-- ========================= APP VIEW ========================= -->
+<div class="app-view" id="appView" style="display:none">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content" id="pageContent"></main>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay" style="display:none">
+  <div class="modal" id="modalBox"></div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toastWrap"></div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════════════
+   QLR WEB DASHBOARD — SUPABASE INTEGRATION
+   ════════════════════════════════════════════════════════════════════════ */
+
+let DB = {
+  users: [],
+  owners: [],
+  projects: [],
+  plots: [],
+  trees: [],
+  logbooks: [],
+  speciesFactors: [],
+  calculations: [],
+  files: [],
+  notifications: [],
+  platformStats: {owners:0, projects:0, totalArea:0, totalTrees:0, carbon:0},
+  areaByProvince: [],
+  carbonByProject: []
+};
+
+// Seed dữ liệu ban đầu lên Supabase nếu bảng trống
+async function seedSupabase() {
+  if (localStorage.getItem('supabase_seeded')) return;
+
+  try {
+    const { data: users } = await supabaseClient.from('users').select('id');
+    if (!users || users.length === 0) {
+      const initialUsers = [
+        {id:'admin@qlr.vn', fullName:'Admin Platform', email:'admin@qlr.vn', phone:'0900 000 001', role:'platform_admin', status:'active', password:'123456'},
+        {id:'owner@qlr.vn', fullName:'Nguyễn Văn A', email:'owner@qlr.vn', phone:'0901 234 567', role:'forest_owner', status:'active', password:'123456'},
+        {id:'worker@qlr.vn', fullName:'Trần Thị B', email:'worker@qlr.vn', phone:'0905 111 222', role:'forest_worker', status:'active', password:'123456'}
+      ];
+      await supabaseClient.from('users').insert(initialUsers);
+    }
+
+    const { data: owners } = await supabaseClient.from('owners').select('code');
+    if (!owners || owners.length === 0) {
+      const initialOwners = [
+        {code:'OWN-0001', name:'Nguyễn Văn A', type:'Individual', regNo:'123456789012', phone:'0901 234 567', email:'nguyenvana@email.com', province:'Lâm Đồng', status:'active', totalProjects:3, totalArea:1250.50},
+        {code:'OWN-0002', name:'Lê Thị B', type:'Individual', regNo:'987654321098', phone:'0912 345 678', province:'Đắk Lắk', status:'active', totalProjects:1, totalArea:980.75},
+        {code:'OWN-0003', name:'Công ty TNHH Rừng Vàng', type:'Company', regNo:'0401234587', phone:'0567 234 567', province:'Đắk Lắk', status:'active', totalProjects:2, totalArea:1320.30}
+      ];
+      await supabaseClient.from('owners').insert(initialOwners);
+    }
+
+    const { data: projects } = await supabaseClient.from('projects').select('code');
+    if (!projects || projects.length === 0) {
+      const initialProjects = [
+        {code:'PRJ-0001', name:'Dak Lak Project 01', ownerCode:'OWN-0001', ownerName:'Nguyễn Văn A', province:'Đắk Lắk', district:'Krông Bông', commune:'Hòa Phong', area:1250.50, forestType:'Rừng trồng', treeSpecies:'Keo Lai', yearPlanted:2020, status:'active', lat:12.6, lng:108.25},
+        {code:'PRJ-0002', name:'Lam Dong Project 02', ownerCode:'OWN-0001', ownerName:'Nguyễn Văn A', province:'Lâm Đồng', district:'Di Linh', commune:'Tân Châu', area:980.75, forestType:'Rừng trồng', treeSpecies:'Bạch đàn', yearPlanted:2019, status:'active', lat:11.58, lng:108.07},
+        {code:'PRJ-0003', name:'Gia Lai Project 01', ownerCode:'OWN-0003', ownerName:'Công ty TNHH Rừng Vàng', province:'Gia Lai', district:'Chư Sê', commune:'Ia Pal', area:1320.30, forestType:'Rừng tự nhiên', treeSpecies:'Thông', yearPlanted:2018, status:'active', lat:13.65, lng:108.05}
+      ];
+      await supabaseClient.from('projects').insert(initialProjects);
+    }
+
+    const { data: plots } = await supabaseClient.from('plots').select('code');
+    if (!plots || plots.length === 0) {
+      const initialPlots = [
+        {code:'PLT-0001', projectCode:'PRJ-0001', area:500, lat:12.345678, lng:108.234567, elevation:600, status:'active'},
+        {code:'PLT-0002', projectCode:'PRJ-0002', area:500, lat:11.234567, lng:107.123456, elevation:665, status:'active'}
+      ];
+      await supabaseClient.from('plots').insert(initialPlots);
+    }
+
+    const { data: trees } = await supabaseClient.from('trees').select('id');
+    if (!trees || trees.length === 0) {
+      const initialTrees = [
+        {plotCode:'PLT-0001', species:'Keo Lai', dbh:18, height:12, quantity:150},
+        {plotCode:'PLT-0001', species:'Bạch đàn', dbh:15, height:10, quantity:60},
+        {plotCode:'PLT-0002', species:'Bạch đàn', dbh:16, height:11, quantity:140}
+      ];
+      await supabaseClient.from('trees').insert(initialTrees);
+    }
+
+    const { data: logbooks } = await supabaseClient.from('logbooks').select('id');
+    if (!logbooks || logbooks.length === 0) {
+      const initialLogs = [
+        {id:'LOG-1001', date:'2024-05-20', type:'Trồng cây', user:'Nguyễn Văn A', project:'Dak Lak Project 01', location:'Đắk Lắk', lat:12.345678, lng:108.234567, photos:0, desc:'Trồng bổ sung 150 cây Keo Lai tại lô PLT-0001.', synced:true, images: [], job_type: 'planting', description: 'Trồng bổ sung 150 cây Keo Lai tại lô PLT-0001.', latitude: 12.345678, longitude: 108.234567, timestamp: '2024-05-20T00:00:00Z', user_id: 'owner@qlr.vn', user_name: 'Nguyễn Văn A', project_id: 'PRJ-0001'},
+        {id:'LOG-1002', date:'2024-05-19', type:'Bảo dưỡng', user:'Trần Thị B', project:'Lam Dong Project 02', location:'Lâm Đồng', lat:11.234567, lng:107.123456, photos:0, desc:'Phát quang dây leo, dọn cỏ quanh gốc khu vực lô B2.', synced:true, images: [], job_type: 'care', description: 'Phát quang dây leo, dọn cỏ quanh gốc khu vực lô B2.', latitude: 11.234567, longitude: 107.123456, timestamp: '2024-05-19T00:00:00Z', user_id: 'worker@qlr.vn', user_name: 'Trần Thị B', project_id: 'PRJ-0002'}
+      ];
+      await supabaseClient.from('logbooks').insert(initialLogs);
+    }
+
+    const { data: notifications } = await supabaseClient.from('notifications').select('id');
+    if (!notifications || notifications.length === 0) {
+      const initialNotifs = [
+        {type:'logbook', title:'Nhật ký mới', desc:'Trần Thị B vừa gửi nhật ký "Bảo dưỡng" tại Lam Dong Project 02', time:'2 giờ trước', read:false},
+        {type:'project', title:'Dự án mới', desc:'Dak Lak Project 02 đã được tạo, trạng thái Draft', time:'5 giờ trước', read:false}
+      ];
+      await supabaseClient.from('notifications').insert(initialNotifs);
+    }
+
+    localStorage.setItem('supabase_seeded', 'true');
+  } catch (e) {
+    console.error('Error seeding Supabase:', e);
+  }
+}
+
+function updateStatsAndCharts() {
+  const totalArea = DB.projects.reduce((acc, p) => acc + p.area, 0);
+  const uniqueOwners = new Set(DB.projects.map(p => p.ownerCode)).size;
+  const approvedCalcs = DB.calculations.filter(c => c.status === 'approved');
+  const totalCarbon = approvedCalcs.reduce((acc, c) => acc + c.carbon, 0);
+  
+  // Tổng hợp cây
+  let totalTrees = 0;
+  DB.plots.forEach(pl => {
+    DB.trees.filter(t => t.plotCode === pl.code).forEach(t => {
+      totalTrees += t.quantity;
+    });
+  });
+
+  DB.platformStats = {
+    owners: uniqueOwners || DB.owners.length,
+    projects: DB.projects.length,
+    totalArea: totalArea,
+    totalTrees: totalTrees || 8956231,
+    carbon: totalCarbon || 215430
+  };
+
+  // Tính diện tích theo tỉnh
+  const provinceMap = {};
+  DB.projects.forEach(p => {
+    provinceMap[p.province] = (provinceMap[p.province] || 0) + p.area;
+  });
+  DB.areaByProvince = Object.keys(provinceMap).map(prov => ({
+    province: prov,
+    area: provinceMap[prov]
+  }));
+
+  // Tính carbon theo dự án
+  const carbonMap = {};
+  DB.calculations.forEach(c => {
+    carbonMap[c.project] = (carbonMap[c.project] || 0) + c.co2e;
+  });
+  DB.carbonByProject = Object.keys(carbonMap).map(proj => ({
+    project: proj,
+    carbon: carbonMap[proj]
+  }));
+}
+
+async function syncTable(table, callback) {
+  const { data, error } = await supabaseClient.from(table).select('*');
+  if (!error && data) {
+    callback(data);
+  }
+}
+
+function initSupabaseSync() {
+  // 1. Users
+  const syncUsers = () => syncTable('users', data => {
+    DB.users = data;
+    if (currentUser) renderPage();
+  });
+  supabaseClient.channel('users-ch').on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, syncUsers).subscribe();
+  syncUsers();
+
+  // 2. Owners
+  const syncOwners = () => syncTable('owners', data => {
+    DB.owners = data;
+    if (currentUser) renderPage();
+  });
+  supabaseClient.channel('owners-ch').on('postgres_changes', { event: '*', schema: 'public', table: 'owners' }, syncOwners).subscribe();
+  syncOwners();
+
+  // 3. Projects
+  const syncProjects = () => syncTable('projects', data => {
+    DB.projects = data;
+    updateStatsAndCharts();
+    if (currentUser) renderPage();
+  });
+  supabaseClient.channel('projects-ch').on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, syncProjects).subscribe();
+  syncProjects();
+
+  // 4. Plots
+  const syncPlots = () => syncTable('plots', data => {
+    DB.plots = data;
+    if (currentUser) renderPage();
+  });
+  supabaseClient.channel('plots-ch').on('postgres_changes', { event: '*', schema: 'public', table: 'plots' }, syncPlots).subscribe();
+  syncPlots();
+
+  // 5. Trees
+  const syncTrees = () => syncTable('trees', data => {
+    DB.trees = data;
+    if (currentUser) renderPage();
+  });
+  supabaseClient.channel('trees-ch').on('postgres_changes', { event: '*', schema: 'public', table: 'trees' }, syncTrees).subscribe();
+  syncTrees();
+
+  // 6. Logbooks
+  const syncLogbooks = () => syncTable('logbooks', data => {
+    DB.logbooks = data.sort((a,b) => b.date.localeCompare(a.date));
+    if (currentUser) renderPage();
+  });
+  supabaseClient.channel('logbooks-ch').on('postgres_changes', { event: '*', schema: 'public', table: 'logbooks' }, syncLogbooks).subscribe();
+  syncLogbooks();
+
+  // 7. Calculations
+  const syncCalculations = () => syncTable('calculations', data => {
+    DB.calculations = data;
+    updateStatsAndCharts();
+    if (currentUser) renderPage();
+  });
+  supabaseClient.channel('calculations-ch').on('postgres_changes', { event: '*', schema: 'public', table: 'calculations' }, syncCalculations).subscribe();
+  syncCalculations();
+
+  // 8. Files
+  const syncFiles = () => syncTable('files', data => {
+    DB.files = data;
+    if (currentUser) renderPage();
+  });
+  supabaseClient.channel('files-ch').on('postgres_changes', { event: '*', schema: 'public', table: 'files' }, syncFiles).subscribe();
+  syncFiles();
+
+  // 9. Notifications
+  const syncNotifications = () => syncTable('notifications', data => {
+    DB.notifications = data;
+    renderSidebar();
+    if (currentUser) renderPage();
+  });
+  supabaseClient.channel('notifications-ch').on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, syncNotifications).subscribe();
+  syncNotifications();
+
+  // 10. Settings
+  const syncSettings = async () => {
+    const { data, error } = await supabaseClient.from('settings').select('*').eq('key', 'speciesFactors').maybeSingle();
+    if (!error && data) {
+      DB.speciesFactors = data.factors || [];
+    } else {
+      await supabaseClient.from('settings').insert({
+        key: 'speciesFactors',
+        factors: [
+          {species:'Keo Lai', factor:0.48},
+          {species:'Bạch đàn', factor:0.47},
+          {species:'Thông', factor:0.50},
+        ]
+      });
+      DB.speciesFactors = [
+        {species:'Keo Lai', factor:0.48},
+        {species:'Bạch đàn', factor:0.47},
+        {species:'Thông', factor:0.50},
+      ];
+    }
+    if (currentUser) renderPage();
+  };
+  supabaseClient.channel('settings-ch').on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, syncSettings).subscribe();
+  syncSettings();
+}
+
+// Khởi chạy đồng bộ và khôi phục session đăng nhập
+seedSupabase();
+initSupabaseSync();
+
+// Tự động kiểm tra login session
+const cachedUser = sessionStorage.getItem('currentUser');
+if (cachedUser) {
+  currentUser = JSON.parse(cachedUser);
+  setTimeout(() => {
+    document.getElementById('loginView').style.display = 'none';
+    document.getElementById('appView').style.display = 'flex';
+    navigate('dashboard');
+  }, 100);
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   STATE
+   ════════════════════════════════════════════════════════════════════════ */
+let currentUser = null;
+let currentPage = 'dashboard';
+let chartInstances = {};
+let selectedOwnerCode = null;
+let selectedPlotCode = null;
+let selectedLogId = null;
+
+/* ════════════════════════════════════════════════════════════════════════
+   HELPERS
+   ════════════════════════════════════════════════════════════════════════ */
+function fmtNum(n, d=0){ return Number(n).toLocaleString('en-US',{minimumFractionDigits:d, maximumFractionDigits:d}); }
+function fmtMoney(n){ return fmtNum(n,0); }
+
+function toast(msg, type='success'){
+  const wrap=document.getElementById('toastWrap');
+  const el=document.createElement('div');
+  el.className='toast-item '+type;
+  el.innerHTML=(type==='success'?'✅ ':'⚠️ ')+msg;
+  wrap.appendChild(el);
+  setTimeout(()=>el.remove(), 3200);
+}
+
+function openModal(title, bodyHtml, footHtml){
+  document.getElementById('modalBox').innerHTML=`
+    <div class="modal-head"><h3>${title}</h3><div class="modal-close" onclick="closeModal()">✕</div></div>
+    <div class="modal-body">${bodyHtml}</div>
+    ${footHtml?`<div class="modal-foot">${footHtml}</div>`:''}`;
+  document.getElementById('modalOverlay').style.display='flex';
+}
+function closeModal(){ document.getElementById('modalOverlay').style.display='none'; }
+
+function statusBadge(status){
+  const map={
+    active:['badge-active','Hoạt động'], inactive:['badge-inactive','Không hoạt động'],
+    locked:['badge-locked','Đã khóa'], draft:['badge-draft','Nháp'],
+    surveying:['badge-surveying','Đang khảo sát'], suspended:['badge-suspended','Tạm dừng'],
+    approved:['badge-active','Đã duyệt'], pending:['badge-pending','Chờ xử lý'],
+  };
+  const [cls,label]=map[status]||['badge-neutral',status];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+function syncBadge(synced){
+  return synced? `<span class="badge badge-synced">Đã đồng bộ</span>` : `<span class="badge badge-pending">Chờ đồng bộ</span>`;
+}
+function jobTypeIcon(type){
+  const map={'Trồng cây':'🌱','Chăm sóc cây':'🌿','Bảo dưỡng':'🌿','Bón phân':'💧','Kiểm tra sinh trưởng':'🔍','Tuần tra':'🚶','Phòng cháy chữa cháy':'🔥'};
+  return map[type]||'📋';
+}
+
+/* Render bảng dữ liệu dùng chung cho tất cả module */
+function renderTable(columns, rows, opts={}){
+  if(!rows.length) return `<div class="empty-state"><div class="ic">📭</div><div>${opts.emptyText||'Không có dữ liệu'}</div></div>`;
+  return `<div class="table-wrap"><table>
+    <thead><tr>${columns.map(c=>`<th>${c.label}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map((row,i)=>`<tr>${columns.map(c=>`<td>${c.render?c.render(row,i):(row[c.key]??'')}</td>`).join('')}</tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   AUTH  (mô phỏng POST /auth/login — trả về user + role)
+   ════════════════════════════════════════════════════════════════════════ */
+function fillDemo(email){
+  document.getElementById('loginEmail').value=email;
+  document.getElementById('loginPass').value='123456';
+}
+async function login(){
+  const email=document.getElementById('loginEmail').value.trim();
+  const pass=document.getElementById('loginPass').value;
+  const err=document.getElementById('loginError');
+  
+  try {
+    const { data: users, error } = await supabaseClient
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .eq('password', pass);
+      
+    if (error || !users || users.length === 0) {
+      err.textContent='Email hoặc mật khẩu không đúng.';
+      err.style.display='block';
+      return;
+    }
+    
+    const user = users[0];
+    if (user.status === 'locked') {
+      err.textContent='Tài khoản đã bị khóa. Liên hệ quản trị viên.';
+      err.style.display='block';
+      return;
+    }
+    if (user.role === 'forest_worker') {
+      err.textContent='Tài khoản Forest Worker vui lòng dùng App Mobile QLR.';
+      err.style.display='block';
+      return;
+    }
+    err.style.display='none';
+    currentUser = user;
+    sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
+    document.getElementById('loginView').style.display='none';
+    document.getElementById('appView').style.display='flex';
+    navigate('dashboard');
+  } catch (e) {
+    err.textContent='Lỗi kết nối Supabase: ' + e.message;
+    err.style.display='block';
+  }
+}
+function logout(){
+  currentUser=null;
+  document.getElementById('appView').style.display='none';
+  document.getElementById('loginView').style.display='flex';
+  document.getElementById('loginError').style.display='none';
+}
+function roleLabel(role){ return {platform_admin:'Quản trị viên', forest_owner:'Chủ rừng', forest_worker:'Nhân viên hiện trường'}[role]||role; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   SIDEBAR / ROUTER  (RBAC — menu khác nhau theo vai trò)
+   ════════════════════════════════════════════════════════════════════════ */
+const MENU = {
+  platform_admin:[
+    {sec:'Tổng quan'},
+    {id:'dashboard', ic:'📊', label:'Dashboard'},
+    {sec:'Quản lý dữ liệu'},
+    {id:'owners', ic:'👥', label:'Forest Owners'},
+    {id:'projects', ic:'🌳', label:'Forest Projects'},
+    {id:'map', ic:'🗺️', label:'Map'},
+    {id:'inventory', ic:'📐', label:'Forest Inventory'},
+    {id:'logbook', ic:'📒', label:'Forest Logbook'},
+    {id:'carbon', ic:'☁️', label:'Carbon Calculation'},
+    {sec:'Hệ thống'},
+    {id:'reports', ic:'📄', label:'Reports'},
+    {id:'files', ic:'🗂️', label:'Files'},
+    {id:'users', ic:'🔐', label:'Users & Phân quyền'},
+    {id:'notifications', ic:'🔔', label:'Notifications'},
+    {id:'settings', ic:'⚙️', label:'Settings'},
+  ],
+  forest_owner:[
+    {sec:'Tổng quan'},
+    {id:'dashboard', ic:'📊', label:'Dashboard'},
+    {sec:'Khu rừng của tôi'},
+    {id:'projects', ic:'🌳', label:'Dự án của tôi'},
+    {id:'map', ic:'🗺️', label:'Bản đồ'},
+    {id:'inventory', ic:'📐', label:'Forest Inventory'},
+    {id:'logbook', ic:'📒', label:'Nhật ký hiện trường'},
+    {id:'carbon', ic:'☁️', label:'Carbon Calculation'},
+    {sec:'Khác'},
+    {id:'reports', ic:'📄', label:'Reports'},
+    {id:'files', ic:'🗂️', label:'Files'},
+    {id:'notifications', ic:'🔔', label:'Notifications'},
+  ],
+};
+
+function ownedProjectCodes(){
+  if(currentUser.role!=='forest_owner') return null; // null = tất cả
+  const owner=DB.owners.find(o=>o.name===currentUser.fullName) || DB.owners[0];
+  return DB.projects.filter(p=>p.ownerCode===owner.code).map(p=>p.code);
+}
+
+function renderSidebar(){
+  const menu=MENU[currentUser.role]||MENU.forest_owner;
+  const unread=DB.notifications.filter(n=>!n.read).length;
+  document.getElementById('sidebar').innerHTML=`
+    <div class="sidebar-brand">
+      <div class="logo">🌲</div>
+      <div><div class="name">QLR Forest</div><div class="sub">Carbon Management</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      ${menu.map(m=> m.sec
+        ? `<div class="nav-section-label">${m.sec}</div>`
+        : `<div class="nav-item ${currentPage===m.id?'active':''}" onclick="navigate('${m.id}')">
+             <span class="ic">${m.ic}</span><span>${m.label}</span>
+             ${m.id==='notifications'&&unread>0?`<span class="badge-count">${unread}</span>`:''}
+           </div>`
+      ).join('')}
+    </nav>
+    <div class="sidebar-foot">QLR v1.0 · Mobile sync ready<br>© 2024 Forest Carbon Platform</div>`;
+}
+
+const PAGE_META = {
+  dashboard:{title:'Dashboard', sub:'Tổng quan dữ liệu rừng & dự án Carbon'},
+  owners:{title:'Forest Owners', sub:'Quản lý danh sách chủ rừng'},
+  projects:{title:'Forest Projects', sub:'Quản lý các dự án rừng'},
+  map:{title:'Map', sub:'Bản đồ ranh giới & vị trí hoạt động'},
+  inventory:{title:'Forest Inventory', sub:'Dữ liệu điều tra rừng — Plot & Tree Data'},
+  logbook:{title:'Forest Logbook', sub:'Nhật ký hiện trường đồng bộ từ Mobile App'},
+  carbon:{title:'Carbon Calculation', sub:'Ước tính sinh khối & trữ lượng Carbon'},
+  reports:{title:'Reports', sub:'Xuất báo cáo PDF'},
+  files:{title:'Files', sub:'Quản lý hồ sơ & tài liệu đính kèm'},
+  users:{title:'Users & Phân quyền', sub:'Quản lý tài khoản hệ thống (Module 3)'},
+  notifications:{title:'Notifications', sub:'Trung tâm thông báo'},
+  settings:{title:'Settings', sub:'Cấu hình hệ số tính Carbon & hệ thống'},
+};
+
+function renderTopbar(){
+  const meta=PAGE_META[currentPage];
+  document.getElementById('topbar').innerHTML=`
+    <div><div class="topbar-title">${meta.title}</div><div class="topbar-sub">${meta.sub}</div></div>
+    <div class="topbar-right">
+      <div class="icon-btn" onclick="navigate('notifications')" title="Thông báo">🔔${DB.notifications.some(n=>!n.read)?'<span class="dot"></span>':''}</div>
+      <div class="user-chip">
+        <div class="avatar">${currentUser.fullName.charAt(0)}</div>
+        <div class="meta"><div class="name">${currentUser.fullName}</div><div class="role">${roleLabel(currentUser.role)}</div></div>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="logout()">Đăng xuất</button>
+    </div>`;
+}
+
+function navigate(page){
+  currentPage=page;
+  renderSidebar();
+  renderTopbar();
+  renderPage();
+}
+
+function renderPage(){
+  const fn = {
+    dashboard: renderDashboard, owners: renderOwners, projects: renderProjects,
+    map: renderMap, inventory: renderInventory, logbook: renderLogbook,
+    carbon: renderCarbon, reports: renderReports, files: renderFiles,
+    users: renderUsers, notifications: renderNotifications, settings: renderSettings,
+  }[currentPage];
+  document.getElementById('pageContent').innerHTML='';
+  Object.values(chartInstances).forEach(c=>c.destroy());
+  chartInstances={};
+  if(fn) fn(); else document.getElementById('pageContent').innerHTML='<div class="empty-state">Không tìm thấy trang</div>';
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   PAGE: DASHBOARD  (Module 12 — khác nhau theo role)
+   ════════════════════════════════════════════════════════════════════════ */
+function renderDashboard(){
+  const isAdmin = currentUser.role==='platform_admin';
+  const codes = ownedProjectCodes();
+  const myProjects = codes ? DB.projects.filter(p=>codes.includes(p.code)) : DB.projects;
+  const myLogs = codes ? DB.logbooks.filter(l=>codes.some(c=>DB.projects.find(p=>p.code===c)?.name===l.project)) : DB.logbooks;
+
+  let kpis;
+  if(isAdmin){
+    const s=DB.platformStats;
+    kpis=[
+      {ic:'👥',color:'var(--primary)',value:fmtNum(s.owners),label:'Forest Owners',delta:'+12% so với năm trước'},
+      {ic:'🌳',color:'var(--blue)',value:fmtNum(s.projects),label:'Forest Projects',delta:'+8% so với năm trước'},
+      {ic:'🗺️',color:'var(--accent)',value:fmtNum(s.totalArea,2)+' ha',label:'Tổng diện tích',delta:'+15% so với năm trước'},
+      {ic:'🌲',color:'#8B5CF6',value:fmtNum(s.totalTrees),label:'Tổng số cây',delta:'+18% so với năm trước'},
+      {ic:'☁️',color:'var(--amber)',value:fmtNum(s.carbon)+' tCO₂e',label:'Estimated Carbon',delta:'+20% so với năm trước'},
+    ];
+  } else {
+    const totalArea=myProjects.reduce((a,p)=>a+p.area,0);
+    const cal=DB.calculations.filter(c=>myProjects.some(p=>p.name===c.project));
+    const totalCarbon=cal.reduce((a,c)=>a+c.carbon,0);
+    kpis=[
+      {ic:'🌳',color:'var(--primary)',value:fmtNum(myProjects.length),label:'Dự án của tôi'},
+      {ic:'🗺️',color:'var(--blue)',value:fmtNum(totalArea,2)+' ha',label:'Tổng diện tích'},
+      {ic:'☁️',color:'var(--amber)',value:fmtNum(totalCarbon,2)+' tCO₂e',label:'Carbon ước tính'},
+      {ic:'📒',color:'var(--accent)',value:fmtNum(myLogs.length),label:'Nhật ký gần đây'},
+    ];
+  }
+
+  document.getElementById('pageContent').innerHTML=`
+    <div class="banner"><span class="ic">📱</span> Dữ liệu nhật ký &amp; hình ảnh được đồng bộ trực tiếp từ <b>App Mobile QLR (Forest Worker)</b> qua API <span class="mono">/logbooks</span>.</div>
+    <div class="grid ${isAdmin?'grid-5':'grid-4'}" style="margin-bottom:18px;">
+      ${kpis.map(k=>`
+        <div class="card kpi">
+          <div class="kpi-top"><div class="ic-wrap" style="background:${k.color}1F; color:${k.color}">${k.ic}</div></div>
+          <div class="value">${k.value}</div>
+          <div class="label">${k.label}</div>
+          ${k.delta?`<div class="delta up">▲ ${k.delta}</div>`:''}
+        </div>`).join('')}
+    </div>
+
+    ${isAdmin?`
+    <div class="grid grid-2" style="margin-bottom:18px;">
+      <div class="card">
+        <div class="card-head"><h3>Diện tích theo tỉnh</h3></div>
+        <canvas id="chartProvince" height="220"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Carbon theo dự án (tCO₂e)</h3></div>
+        <canvas id="chartCarbon" height="220"></canvas>
+      </div>
+    </div>`:`
+    <div class="grid grid-2" style="margin-bottom:18px;">
+      <div class="card">
+        <div class="card-head"><h3>Dự án của tôi</h3><span class="link" onclick="navigate('projects')">Xem tất cả</span></div>
+        ${renderTable(
+          [{label:'Mã DA',key:'code'},{label:'Tên dự án',key:'name'},{label:'Tỉnh',key:'province'},
+           {label:'Diện tích',render:r=>fmtNum(r.area,2)+' ha'},{label:'Trạng thái',render:r=>statusBadge(r.status)}],
+          myProjects)}
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Carbon theo dự án (tCO₂e)</h3></div>
+        <canvas id="chartCarbon" height="220"></canvas>
+      </div>
+    </div>`}
+
+    <div class="card">
+      <div class="card-head"><h3>Hoạt động gần đây (Recent Activities)</h3><span class="link" onclick="navigate('logbook')">Xem tất cả</span></div>
+      ${renderTable([
+        {label:'Ngày',key:'date'},
+        {label:'Dự án',key:'project'},
+        {label:'Loại HĐ',render:r=>jobTypeIcon(r.type)+' '+r.type},
+        {label:'Người thực hiện',key:'user'},
+        {label:'Vị trí',key:'location'},
+        {label:'Ảnh',render:r=>r.photos+' ảnh'},
+        {label:'Đồng bộ',render:r=>syncBadge(r.synced)},
+      ], myLogs.slice(0,5))}
+    </div>
+  `;
+
+  // ---- Charts ----
+  if(isAdmin){
+    chartInstances.province = new Chart(document.getElementById('chartProvince'), {
+      type:'doughnut',
+      data:{labels:DB.areaByProvince.map(p=>p.province),
+        datasets:[{data:DB.areaByProvince.map(p=>p.area),
+          backgroundColor:['#107C41','#1A9E54','#34D399','#6EE7B7','#A7F3D0','#D1FAE5'],
+          borderWidth:0}]},
+      options:{plugins:{legend:{position:'right', labels:{boxWidth:12, font:{size:11}}}}, cutout:'62%'}
+    });
+  }
+  chartInstances.carbon = new Chart(document.getElementById('chartCarbon'), {
+    type:'bar',
+    data:{labels:DB.carbonByProject.map(p=>p.project.replace(' Project','\n')),
+      datasets:[{label:'tCO₂e', data:DB.carbonByProject.map(p=>p.carbon), backgroundColor:'#107C41', borderRadius:6, maxBarThickness:42}]},
+    options:{plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, grid:{color:'#EEF2EE'}}, x:{grid:{display:false}}}}
+  });
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   STUB PAGES — sẽ được hoàn thiện ở phần tiếp theo của file
+   ════════════════════════════════════════════════════════════════════════ */
+function renderOwners(){
+  const rows = DB.owners;
+  if(!selectedOwnerCode) selectedOwnerCode = rows[0]?.code;
+  const sel = rows.find(o=>o.code===selectedOwnerCode);
+  const projects = DB.projects.filter(p=>p.ownerCode===selectedOwnerCode);
+
+  document.getElementById('pageContent').innerHTML = `
+    <div class="page-head">
+      <div><h1>Forest Owners</h1><p>${rows.length} chủ rừng</p></div>
+      <div class="toolbar">
+        <div class="search-box">🔍 <input placeholder="Tìm theo tên, mã chủ rừng..." oninput="filterOwners(this.value)"></div>
+        <select class="select-sm" onchange="filterOwnersByStatus(this.value)">
+          <option value="all">Tất cả trạng thái</option>
+          <option value="active">Hoạt động</option>
+          <option value="inactive">Không hoạt động</option>
+        </select>
+        <button class="btn btn-primary" onclick="openOwnerModal()">+ Add Owner</button>
+      </div>
+    </div>
+    <div class="grid" style="grid-template-columns:2fr 1fr; gap:16px;">
+      <div class="card"><div id="ownersTableWrap">${ownersTableHtml(rows)}</div></div>
+      <div class="card" id="ownerSummary">${sel?ownerSummaryHtml(sel, projects):'<div class="empty-state">Chọn một chủ rừng</div>'}</div>
+    </div>`;
+}
+function ownersTableHtml(rows){
+  return renderTable([
+    {label:'Owner Code', render:r=>`<span class="row-link mono" onclick="selectOwner('${r.code}')">${r.code}</span>`},
+    {label:'Owner Name', render:r=>`<div class="cell-strong">${r.name}</div>`},
+    {label:'Type', key:'type'},
+    {label:'ID/Business Reg.', render:r=>`<span class="mono">${r.regNo||'—'}</span>`},
+    {label:'Phone', key:'phone'},
+    {label:'Province', key:'province'},
+    {label:'Status', render:r=>statusBadge(r.status)},
+    {label:'', render:r=>`<button class="btn btn-outline btn-sm" onclick="openOwnerModal('${r.code}')">Sửa</button>`},
+  ], rows, {emptyText:'Không tìm thấy chủ rừng'});
+}
+function ownerSummaryHtml(o, projects){
+  return `
+    <div class="card-head"><h3>Owner Summary</h3></div>
+    <div class="detail-panel">
+      <div class="detail-row"><span class="k">Owner Code</span><span class="v mono">${o.code}</span></div>
+      <div class="detail-row"><span class="k">Owner Name</span><span class="v">${o.name}</span></div>
+      <div class="detail-row"><span class="k">Type</span><span class="v">${o.type}</span></div>
+      <div class="detail-row"><span class="k">ID/GPKD</span><span class="v mono">${o.regNo||'—'}</span></div>
+      <div class="detail-row"><span class="k">Phone</span><span class="v">${o.phone}</span></div>
+      <div class="detail-row"><span class="k">Email</span><span class="v">${o.email||'—'}</span></div>
+      <div class="detail-row"><span class="k">Province</span><span class="v">${o.province}</span></div>
+      <div class="detail-row"><span class="k">Status</span><span class="v">${statusBadge(o.status)}</span></div>
+      <div class="detail-row"><span class="k">Tổng diện tích</span><span class="v">${fmtNum(o.totalArea,2)} ha</span></div>
+    </div>
+    <div style="margin-top:14px;">
+      <div style="font-size:12px; font-weight:700; margin-bottom:8px;">Dự án (${projects.length})</div>
+      ${projects.map(p=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px;">
+        <span class="row-link" onclick="navigate('projects')">${p.name}</span><span>${fmtNum(p.area,2)} ha</span></div>`).join('')||'<div class="cell-sub">Chưa có dự án</div>'}
+    </div>
+    <div style="margin-top:14px; display:flex; gap:8px;">
+      <button class="btn btn-outline btn-sm" style="flex:1" onclick="openOwnerModal('${o.code}')">✏️ Sửa hồ sơ</button>
+      <button class="btn btn-danger-outline btn-sm" onclick="deleteOwner('${o.code}')">🗑️</button>
+    </div>`;
+}
+function selectOwner(code){ selectedOwnerCode=code; renderOwners(); }
+function filterOwners(q){
+  q=q.toLowerCase();
+  const rows=DB.owners.filter(o=>o.name.toLowerCase().includes(q)||o.code.toLowerCase().includes(q));
+  document.getElementById('ownersTableWrap').innerHTML=ownersTableHtml(rows);
+}
+function filterOwnersByStatus(status){
+  const rows = status==='all'?DB.owners:DB.owners.filter(o=>o.status===status);
+  document.getElementById('ownersTableWrap').innerHTML=ownersTableHtml(rows);
+}
+function openOwnerModal(code){
+  const o = code? DB.owners.find(x=>x.code===code) : null;
+  openModal(o?'Sửa thông tin chủ rừng':'Thêm chủ rừng mới', `
+    <div class="field-row">
+      <div class="field"><label>Tên chủ rừng *</label><input id="f_name" value="${o?.name||''}"></div>
+      <div class="field"><label>Loại</label>
+        <select id="f_type">${['Individual','Company','Cooperative'].map(t=>`<option ${o?.type===t?'selected':''}>${t}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>CCCD/GPKD</label><input id="f_reg" value="${o?.regNo||''}"></div>
+      <div class="field"><label>Điện thoại</label><input id="f_phone" value="${o?.phone||''}"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Email</label><input id="f_email" value="${o?.email||''}"></div>
+      <div class="field"><label>Tỉnh/Thành</label><input id="f_province" value="${o?.province||''}"></div>
+    </div>
+    <div class="field"><label>Trạng thái</label>
+      <select id="f_status">${['active','inactive'].map(s=>`<option value="${s}" ${o?.status===s?'selected':''}>${s==='active'?'Hoạt động':'Không hoạt động'}</option>`).join('')}</select>
+    </div>
+  `, `<button class="btn btn-outline" onclick="closeModal()">Hủy</button><button class="btn btn-primary" onclick="saveOwner('${code||''}')">💾 Lưu</button>`);
+}
+function saveOwner(code){
+  const data={
+    name:document.getElementById('f_name').value.trim(),
+    type:document.getElementById('f_type').value,
+    regNo:document.getElementById('f_reg').value.trim(),
+    phone:document.getElementById('f_phone').value.trim(),
+    email:document.getElementById('f_email').value.trim(),
+    province:document.getElementById('f_province').value.trim(),
+    status:document.getElementById('f_status').value,
+  };
+  if(!data.name){ toast('Vui lòng nhập tên chủ rừng','error'); return; }
+  if(code){
+    supabaseClient.from('owners').update(data).eq('code', code).then(({ error }) => {
+      if (error) { toast('Lỗi cập nhật: ' + error.message, 'error'); return; }
+      toast('Đã cập nhật chủ rừng');
+      closeModal();
+    });
+  } else {
+    const newCode='OWN-'+String(DB.owners.length+1).padStart(4,'0');
+    supabaseClient.from('owners').insert({code:newCode, totalProjects:0, totalArea:0, ...data}).then(({ error }) => {
+      if (error) { toast('Lỗi thêm mới: ' + error.message, 'error'); return; }
+      toast('Đã thêm chủ rừng mới');
+      selectedOwnerCode=newCode;
+      closeModal();
+    });
+  }
+}
+function deleteOwner(code){
+  if(!confirm('Xóa chủ rừng này? Các dự án liên quan sẽ không bị xóa.')) return;
+  supabaseClient.from('owners').delete().eq('code', code).then(({ error }) => {
+    if (error) { toast('Lỗi xóa: ' + error.message, 'error'); return; }
+    toast('Đã xóa chủ rừng');
+    selectedOwnerCode=DB.owners[0]?.code || null;
+  });
+}
+
+/* ====================== MODULE 5: FOREST PROJECTS ====================== */
+function renderProjects(){
+  const codes=ownedProjectCodes();
+  const all = codes? DB.projects.filter(p=>codes.includes(p.code)) : DB.projects;
+  document.getElementById('pageContent').innerHTML = `
+    <div class="page-head">
+      <div><h1>Forest Projects</h1><p>${all.length} dự án</p></div>
+      <div class="toolbar">
+        <div class="search-box">🔍 <input placeholder="Tìm theo tên, mã dự án..." oninput="filterProjects(this.value)"></div>
+        <select class="select-sm" onchange="filterProjectsByStatus(this.value)">
+          <option value="all">Tất cả trạng thái</option>
+          <option value="draft">Draft</option><option value="surveying">Surveying</option>
+          <option value="active">Active</option><option value="suspended">Suspended</option>
+        </select>
+        <button class="btn btn-primary" onclick="openProjectModal()">+ New Project</button>
+      </div>
+    </div>
+    <div class="card"><div id="projectsTableWrap">${projectsTableHtml(all)}</div></div>`;
+}
+function projectsTableHtml(rows){
+  return renderTable([
+    {label:'Project Code', render:r=>`<span class="mono cell-strong">${r.code}</span>`},
+    {label:'Project Name', render:r=>`<span class="row-link" onclick="viewProject('${r.code}')">${r.name}</span>`},
+    {label:'Owner', key:'ownerName'},
+    {label:'Province', key:'province'},
+    {label:'Area (ha)', render:r=>fmtNum(r.area,2)},
+    {label:'Year', key:'yearPlanted'},
+    {label:'Status', render:r=>statusBadge(r.status)},
+    {label:'', render:r=>`<button class="btn btn-outline btn-sm" onclick="openProjectModal('${r.code}')">Sửa</button>`},
+  ], rows, {emptyText:'Chưa có dự án nào'});
+}
+function filterProjects(q){
+  q=q.toLowerCase();
+  const codes=ownedProjectCodes();
+  let rows = codes? DB.projects.filter(p=>codes.includes(p.code)) : DB.projects;
+  rows=rows.filter(p=>p.name.toLowerCase().includes(q)||p.code.toLowerCase().includes(q));
+  document.getElementById('projectsTableWrap').innerHTML=projectsTableHtml(rows);
+}
+function filterProjectsByStatus(status){
+  const codes=ownedProjectCodes();
+  let rows = codes? DB.projects.filter(p=>codes.includes(p.code)) : DB.projects;
+  if(status!=='all') rows=rows.filter(p=>p.status===status);
+  document.getElementById('projectsTableWrap').innerHTML=projectsTableHtml(rows);
+}
+function viewProject(code){
+  const p=DB.projects.find(x=>x.code===code);
+  const plots=DB.plots.filter(pl=>pl.projectCode===code);
+  openModal(`Dự án: ${p.name}`, `
+    <div class="detail-panel">
+      <div class="detail-row"><span class="k">Mã dự án</span><span class="v mono">${p.code}</span></div>
+      <div class="detail-row"><span class="k">Chủ rừng</span><span class="v">${p.ownerName}</span></div>
+      <div class="detail-row"><span class="k">Tỉnh / Huyện / Xã</span><span class="v">${p.province} / ${p.district} / ${p.commune}</span></div>
+      <div class="detail-row"><span class="k">Loại rừng</span><span class="v">${p.forestType}</span></div>
+      <div class="detail-row"><span class="k">Loài cây</span><span class="v">${p.treeSpecies}</span></div>
+      <div class="detail-row"><span class="k">Năm trồng</span><span class="v">${p.yearPlanted}</span></div>
+      <div class="detail-row"><span class="k">Diện tích</span><span class="v">${fmtNum(p.area,2)} ha</span></div>
+      <div class="detail-row"><span class="k">Trạng thái</span><span class="v">${statusBadge(p.status)}</span></div>
+      <div class="detail-row"><span class="k">Số Plot điều tra</span><span class="v">${plots.length}</span></div>
+    </div>`, `<button class="btn btn-primary" onclick="closeModal(); navigate('map')">🗺️ Xem trên bản đồ</button>`);
+}
+function openProjectModal(code){
+  const p = code? DB.projects.find(x=>x.code===code) : null;
+  const ownerOptions = DB.owners.map(o=>`<option value="${o.code}" ${p?.ownerCode===o.code?'selected':''}>${o.name} (${o.code})</option>`).join('');
+  openModal(p?'Sửa dự án':'Tạo dự án mới', `
+    <div class="field"><label>Tên dự án *</label><input id="p_name" value="${p?.name||''}"></div>
+    <div class="field"><label>Chủ rừng</label><select id="p_owner">${ownerOptions}</select></div>
+    <div class="field-row">
+      <div class="field"><label>Tỉnh</label><input id="p_province" value="${p?.province||''}"></div>
+      <div class="field"><label>Huyện</label><input id="p_district" value="${p?.district||''}"></div>
+      <div class="field"><label>Xã</label><input id="p_commune" value="${p?.commune||''}"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Loại rừng</label>
+        <select id="p_forestType"><option ${p?.forestType==='Rừng trồng'?'selected':''}>Rừng trồng</option><option ${p?.forestType==='Rừng tự nhiên'?'selected':''}>Rừng tự nhiên</option></select></div>
+      <div class="field"><label>Loài cây</label>
+        <select id="p_species">${DB.speciesFactors.map(s=>`<option ${p?.treeSpecies===s.species?'selected':''}>${s.species}</option>`).join('')}</select></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Năm trồng</label><input id="p_year" type="number" value="${p?.yearPlanted||new Date().getFullYear()}"></div>
+      <div class="field"><label>Diện tích (ha)</label><input id="p_area" type="number" step="0.01" value="${p?.area||''}"></div>
+    </div>
+    <div class="field"><label>Trạng thái</label>
+      <select id="p_status">${['draft','surveying','active','suspended'].map(s=>`<option value="${s}" ${p?.status===s?'selected':''}>${s}</option>`).join('')}</select>
+    </div>
+  `, `<button class="btn btn-outline" onclick="closeModal()">Hủy</button><button class="btn btn-primary" onclick="saveProject('${code||''}')">💾 Lưu</button>`);
+}
+function saveProject(code){
+  const ownerCode=document.getElementById('p_owner').value;
+  const owner=DB.owners.find(o=>o.code===ownerCode);
+  const data={
+    name:document.getElementById('p_name').value.trim(),
+    ownerCode, ownerName:owner.name,
+    province:document.getElementById('p_province').value.trim(),
+    district:document.getElementById('p_district').value.trim(),
+    commune:document.getElementById('p_commune').value.trim(),
+    forestType:document.getElementById('p_forestType').value,
+    treeSpecies:document.getElementById('p_species').value,
+    yearPlanted:Number(document.getElementById('p_year').value),
+    area:Number(document.getElementById('p_area').value),
+    status:document.getElementById('p_status').value,
+  };
+  if(!data.name||!data.area){ toast('Vui lòng nhập đủ Tên dự án và Diện tích','error'); return; }
+  if(code){
+    supabaseClient.from('projects').update(data).eq('code', code).then(({ error }) => {
+      if (error) { toast('Lỗi cập nhật dự án: ' + error.message, 'error'); return; }
+      toast('Đã cập nhật dự án');
+      closeModal();
+    });
+  } else {
+    const newCode='PRJ-'+String(DB.projects.length+1).padStart(4,'0');
+    supabaseClient.from('projects').insert({
+      code:newCode,
+      lat:12+Math.random()*4,
+      lng:107+Math.random()*2,
+      ...data
+    }).then(({ error }) => {
+      if (error) { toast('Lỗi tạo dự án: ' + error.message, 'error'); return; }
+      toast('Đã tạo dự án mới');
+      closeModal();
+    });
+  }
+}
+/* ====================== MODULE 6: GIS MAP ====================== */
+function renderMap(){
+  const codes=ownedProjectCodes();
+  const projs = codes? DB.projects.filter(p=>codes.includes(p.code)) : DB.projects;
+  document.getElementById('pageContent').innerHTML=`
+    <div class="page-head"><div><h1>Map</h1><p>Bản đồ ranh giới & hoạt động hiện trường</p></div>
+      <div class="toolbar">
+        <select class="select-sm" id="mapLayerSelect" onchange="filterMapProject(this.value)">
+          <option value="all">Tất cả dự án</option>
+          ${projs.map(p=>`<option value="${p.code}">${p.name}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 280px; gap:16px;">
+      <div class="card" style="padding:0; overflow:hidden;">
+        <div id="map"></div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <div class="card">
+          <div class="card-head"><h3>Map Layers</h3></div>
+          <div class="legend-item"><span class="legend-dot" style="background:#107C41"></span>Projects</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#2563EB"></span>Plots</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#F59E0B"></span>Activities</div>
+          <div style="height:1px; background:var(--border); margin:8px 0;"></div>
+          <div class="legend-item"><span class="legend-dot" style="background:#107C41"></span>Google Satellite</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#6B7280"></span>Base Map</div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>Projects</h3></div>
+          ${projs.map(p=>`
+            <div class="legend-item" onclick="flyToProject('${p.code}')" style="border-radius:8px;">
+              <span class="legend-dot" style="background:var(--primary)"></span>
+              <div><div style="font-size:12.5px; font-weight:600;">${p.name}</div>
+              <div style="font-size:11px; color:var(--text-2)">${fmtNum(p.area,2)} ha</div></div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  setTimeout(()=>initMap(projs), 100);
+}
+let _map=null, _markers=[];
+function initMap(projs){
+  if(_map){ _map.remove(); _map=null; }
+  _map = L.map('map', {zoomControl:true}).setView([13.5, 108.0], 6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(_map);
+  _markers=[];
+  const colors={active:'#107C41', draft:'#F59E0B', surveying:'#2563EB', suspended:'#DC2626'};
+  projs.forEach(p=>{
+    const circle=L.circle([p.lat,p.lng],{radius:p.area*15, color:colors[p.status]||'#107C41',
+      fillColor:colors[p.status]||'#107C41', fillOpacity:0.18, weight:2}).addTo(_map);
+    const marker=L.marker([p.lat,p.lng]).addTo(_map);
+    marker.bindPopup(`<b>${p.name}</b><br>Diện tích: ${fmtNum(p.area,2)} ha<br>Loài cây: ${p.treeSpecies}<br>${statusBadge(p.status)}`);
+    _markers.push({code:p.code, marker, circle});
+  });
+  // Checkin markers (logbook GPS)
+  DB.logbooks.forEach(l=>{
+    L.circleMarker([l.lat,l.lng],{radius:6, color:'#F59E0B', fillColor:'#F59E0B', fillOpacity:0.8, weight:2})
+      .addTo(_map).bindPopup(`${jobTypeIcon(l.type)} <b>${l.type}</b><br>${l.user}<br>${l.date}`);
+  });
+}
+function flyToProject(code){
+  const p=DB.projects.find(x=>x.code===code);
+  if(_map && p) _map.flyTo([p.lat,p.lng],10,{duration:1.2});
+}
+function filterMapProject(code){
+  if(!_map) return;
+  const codes=ownedProjectCodes();
+  const projs = codes? DB.projects.filter(p=>codes.includes(p.code)) : DB.projects;
+  const filtered = code==='all'? projs : projs.filter(p=>p.code===code);
+  initMap(filtered);
+  if(code!=='all'){
+    const p=DB.projects.find(x=>x.code===code);
+    if(p) _map.flyTo([p.lat,p.lng],9,{duration:1});
+  }
+}
+
+/* ====================== MODULE 7: FOREST INVENTORY ====================== */
+function renderInventory(){
+  const codes=ownedProjectCodes();
+  const plots = codes
+    ? DB.plots.filter(pl=>codes.some(c=>pl.projectCode===c))
+    : DB.plots;
+  if(!selectedPlotCode) selectedPlotCode=plots[0]?.code;
+  const selPlot=plots.find(pl=>pl.code===selectedPlotCode);
+  const trees=selPlot? DB.trees.filter(t=>t.plotCode===selectedPlotCode) : [];
+  const proj=selPlot? DB.projects.find(p=>p.code===selPlot.projectCode) : null;
+
+  document.getElementById('pageContent').innerHTML=`
+    <div class="page-head">
+      <div><h1>Forest Inventory</h1><p>Dữ liệu điều tra rừng — Plot Sampling & Tree Data</p></div>
+      <div class="toolbar">
+        <select class="select-sm" onchange="filterInventoryByProject(this.value)">
+          <option value="all">Tất cả dự án</option>
+          ${(codes?DB.projects.filter(p=>codes.includes(p.code)):DB.projects).map(p=>`<option value="${p.code}">${p.name}</option>`).join('')}
+        </select>
+        <button class="btn btn-primary" onclick="openPlotModal()">+ Add Plot</button>
+      </div>
+    </div>
+    <div class="tabs">
+      <div class="tab active" id="tab-plots" onclick="switchInvTab('plots')">Plots</div>
+      <div class="tab" id="tab-trees" onclick="switchInvTab('trees')">Tree Data</div>
+    </div>
+    <div id="invTabContent">
+      <div style="display:grid; grid-template-columns:1.4fr 1fr; gap:16px;">
+        <div class="card">
+          <div class="card-head"><h3>Plot Sampling (${plots.length} ô)</h3></div>
+          ${renderTable([
+            {label:'Plot Code', render:pl=>`<span class="row-link mono" onclick="selectPlot('${pl.code}')">${pl.code}</span>`},
+            {label:'Project', render:pl=>{const p=DB.projects.find(x=>x.code===pl.projectCode); return p?.name||pl.projectCode;}},
+            {label:'Area (m²)', render:pl=>fmtNum(pl.area)},
+            {label:'Latitude', render:pl=>pl.lat.toFixed(6)},
+            {label:'Longitude', render:pl=>pl.lng.toFixed(6)},
+            {label:'Elevation (m)', key:'elevation'},
+            {label:'Status', render:pl=>statusBadge(pl.status)},
+          ], plots)}
+        </div>
+        <div class="card" id="plotDetail">
+          ${selPlot? plotDetailHtml(selPlot, trees, proj) : '<div class="empty-state">Chọn một plot để xem chi tiết</div>'}
+        </div>
+      </div>
+    </div>`;
+}
+function plotDetailHtml(pl, trees, proj){
+  const totalTree=trees.reduce((a,t)=>a+t.quantity,0);
+  return `
+    <div class="card-head"><h3>Plot Detail</h3></div>
+    <div class="detail-panel" style="margin-bottom:14px;">
+      <div class="detail-row"><span class="k">Plot Code</span><span class="v mono">${pl.code}</span></div>
+      <div class="detail-row"><span class="k">Project</span><span class="v">${proj?.name||pl.projectCode}</span></div>
+      <div class="detail-row"><span class="k">Area</span><span class="v">${fmtNum(pl.area)} m²</span></div>
+      <div class="detail-row"><span class="k">Coordinates</span><span class="v mono" style="font-size:11px">${pl.lat.toFixed(6)}, ${pl.lng.toFixed(6)}</span></div>
+      <div class="detail-row"><span class="k">Elevation</span><span class="v">${pl.elevation} m</span></div>
+      <div class="detail-row"><span class="k">Status</span><span class="v">${statusBadge(pl.status)}</span></div>
+    </div>
+    <div style="font-size:12px; font-weight:700; margin-bottom:8px;">Tree Data (${totalTree} cây)</div>
+    ${trees.map(t=>`
+      <div style="background:var(--surface-2); border-radius:10px; padding:10px 12px; margin-bottom:8px; font-size:12.5px;">
+        <div style="font-weight:700; margin-bottom:4px;">${t.species}</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px; color:var(--text-2);">
+          <span>DBH: <b style="color:var(--text)">${t.dbh} cm</b></span>
+          <span>H: <b style="color:var(--text)">${t.height} m</b></span>
+          <span>SL: <b style="color:var(--primary)">${fmtNum(t.quantity)}</b></span>
+        </div>
+      </div>`).join('')||'<div class="cell-sub">Chưa có dữ liệu cây</div>'}
+    <button class="btn btn-primary btn-sm" style="width:100%; margin-top:8px;" onclick="openAddTreeModal('${pl.code}')">+ Thêm Tree Data</button>`;
+}
+function selectPlot(code){ selectedPlotCode=code; renderInventory(); }
+function switchInvTab(tab){
+  document.querySelectorAll('.tabs .tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  if(tab==='trees'){
+    const codes=ownedProjectCodes();
+    const trees=DB.trees.filter(t=>!codes||codes.some(c=>DB.plots.find(pl=>pl.code===t.plotCode)?.projectCode===c));
+    document.getElementById('invTabContent').innerHTML=renderTable([
+      {label:'Plot Code', render:t=>`<span class="mono">${t.plotCode}</span>`},
+      {label:'Species', key:'species'},
+      {label:'DBH (cm)', key:'dbh'},
+      {label:'Height (m)', key:'height'},
+      {label:'Quantity', render:t=>fmtNum(t.quantity)},
+    ], trees);
+  } else { renderInventory(); }
+}
+function filterInventoryByProject(code){
+  const codes=ownedProjectCodes();
+  let plots = codes? DB.plots.filter(pl=>codes.includes(pl.projectCode)) : DB.plots;
+  if(code!=='all') plots=plots.filter(pl=>pl.projectCode===code);
+  selectedPlotCode=plots[0]?.code||null;
+  renderInventory();
+}
+function openPlotModal(){
+  const codes=ownedProjectCodes();
+  const projs=codes?DB.projects.filter(p=>codes.includes(p.code)):DB.projects;
+  openModal('Thêm Plot Sampling mới',`
+    <div class="field"><label>Dự án *</label><select id="pl_proj">${projs.map(p=>`<option value="${p.code}">${p.name}</option>`).join('')}</select></div>
+    <div class="field-row">
+      <div class="field"><label>Diện tích (m²)</label><input id="pl_area" type="number" value="500"></div>
+      <div class="field"><label>Độ cao (m)</label><input id="pl_elev" type="number" value="600"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Latitude</label><input id="pl_lat" type="number" step="0.000001" value="12.345678"></div>
+      <div class="field"><label>Longitude</label><input id="pl_lng" type="number" step="0.000001" value="108.234567"></div>
+    </div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Hủy</button><button class="btn btn-primary" onclick="savePlot()">💾 Lưu</button>`);
+}
+function savePlot(){
+  const code='PLT-'+String(DB.plots.length+1).padStart(4,'0');
+  const plotData = {
+    code,
+    projectCode:document.getElementById('pl_proj').value,
+    area:Number(document.getElementById('pl_area').value),
+    elevation:Number(document.getElementById('pl_elev').value),
+    lat:Number(document.getElementById('pl_lat').value),
+    lng:Number(document.getElementById('pl_lng').value),
+    status:'active'
+  };
+  supabaseClient.from('plots').insert(plotData).then(({ error }) => {
+    if (error) { toast('Lỗi thêm Plot: ' + error.message, 'error'); return; }
+    toast('Đã thêm Plot '+code);
+    closeModal();
+    selectedPlotCode=code;
+  });
+}
+function openAddTreeModal(plotCode){
+  openModal('Thêm Tree Data cho '+plotCode,`
+    <div class="field"><label>Loài cây</label><select id="tr_sp">${DB.speciesFactors.map(s=>`<option>${s.species}</option>`).join('')}</select></div>
+    <div class="field-row">
+      <div class="field"><label>DBH (cm)</label><input id="tr_dbh" type="number" value="18"></div>
+      <div class="field"><label>Chiều cao (m)</label><input id="tr_h" type="number" value="12"></div>
+      <div class="field"><label>Số lượng</label><input id="tr_qty" type="number" value="100"></div>
+    </div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Hủy</button><button class="btn btn-primary" onclick="saveTree('${plotCode}')">💾 Lưu</button>`);
+}
+function saveTree(plotCode){
+  const treeData = {
+    plotCode,
+    species:document.getElementById('tr_sp').value,
+    dbh:Number(document.getElementById('tr_dbh').value),
+    height:Number(document.getElementById('tr_h').value),
+    quantity:Number(document.getElementById('tr_qty').value)
+  };
+  supabaseClient.from('trees').insert(treeData).then(({ error }) => {
+    if (error) { toast('Lỗi thêm Tree: ' + error.message, 'error'); return; }
+    toast('Đã thêm dữ liệu cây');
+    closeModal();
+  });
+}
+
+/* ====================== MODULE 8: FOREST LOGBOOK ====================== */
+function renderLogbook(){
+  const codes=ownedProjectCodes();
+  const logs = codes
+    ? DB.logbooks.filter(l=>codes.some(c=>DB.projects.find(p=>p.code===c)?.name===l.project))
+    : DB.logbooks;
+  if(!selectedLogId) selectedLogId=logs[0]?.id;
+  const sel=logs.find(l=>l.id===selectedLogId);
+
+  document.getElementById('pageContent').innerHTML=`
+    <div class="page-head">
+      <div><h1>Forest Logbook</h1>
+        <p>Nhật ký đồng bộ từ App Mobile QLR · <span style="color:var(--amber); font-weight:700;">${logs.filter(l=>!l.synced).length} chờ đồng bộ</span></p>
+      </div>
+      <div class="toolbar">
+        <div class="search-box">🔍 <input placeholder="Tìm nhật ký..." oninput="filterLogs(this.value)"></div>
+        <select class="select-sm" onchange="filterLogsByType(this.value)">
+          <option value="all">Tất cả loại HĐ</option>
+          ${['Trồng cây','Chăm sóc cây','Bón phân','Kiểm tra sinh trưởng','Tuần tra','Phòng cháy chữa cháy']
+            .map(t=>`<option value="${t}">${t}</option>`).join('')}
+        </select>
+        <button class="btn btn-primary" onclick="openNewLogModal()">+ New Activity</button>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns:1.6fr 1fr; gap:16px;">
+      <div class="card">
+        <div class="card-head"><h3>Danh sách nhật ký (${logs.length})</h3></div>
+        <div id="logTableWrap">${logTableHtml(logs)}</div>
+      </div>
+      <div class="card" id="logDetail">
+        ${sel? logDetailHtml(sel) : '<div class="empty-state">Chọn nhật ký để xem chi tiết</div>'}
+      </div>
+    </div>`;
+}
+function logTableHtml(rows){
+  return renderTable([
+    {label:'Ngày', key:'date'},
+    {label:'Loại HĐ', render:r=>`${jobTypeIcon(r.type)} ${r.type}`},
+    {label:'Người thực hiện', key:'user'},
+    {label:'Vị trí', key:'location'},
+    {label:'Ảnh', render:r=>`📷 ${r.photos}`},
+    {label:'Đồng bộ', render:r=>syncBadge(r.synced)},
+    {label:'', render:r=>`<span class="row-link" onclick="selectLog('${r.id}')">Chi tiết</span>`},
+  ], rows);
+}
+function logDetailHtml(l){
+  return `
+    <div class="card-head"><h3>Activity Detail</h3><span class="row-link" onclick="openEditLogModal('${l.id}')">✏️ Sửa</span></div>
+    <div style="font-size:24px; text-align:center; margin:12px 0;">${jobTypeIcon(l.type)}</div>
+    <div class="detail-panel" style="margin-bottom:14px;">
+      <div class="detail-row"><span class="k">Activity Type</span><span class="v">${l.type}</span></div>
+      <div class="detail-row"><span class="k">Date</span><span class="v">${l.date}</span></div>
+      <div class="detail-row"><span class="k">User</span><span class="v">${l.user}</span></div>
+      <div class="detail-row"><span class="k">Project</span><span class="v">${l.project}</span></div>
+      <div class="detail-row"><span class="k">Location</span><span class="v">${l.location}</span></div>
+      <div class="detail-row"><span class="k">GPS</span><span class="v mono" style="font-size:10.5px">${l.lat.toFixed(6)}, ${l.lng.toFixed(6)}</span></div>
+      <div class="detail-row"><span class="k">Đồng bộ</span><span class="v">${syncBadge(l.synced)}</span></div>
+    </div>
+    <div style="font-size:12.5px; color:var(--text-2); margin-bottom:8px;">${l.desc}</div>
+    <div style="font-size:12px; font-weight:600; margin-bottom:6px;">Ảnh hiện trường (${l.photos})</div>
+    <div class="thumb-grid">
+      ${Array.from({length:l.photos}).map((_,i)=>`<div class="thumb">📷</div>`).join('')}
+    </div>
+    ${!l.synced?`<button class="btn btn-primary btn-sm" style="width:100%;margin-top:10px;" onclick="syncLog('${l.id}')">🔄 Đồng bộ ngay</button>`:''}`;
+}
+function selectLog(id){ selectedLogId=id; renderLogbook(); }
+function filterLogs(q){
+  q=q.toLowerCase();
+  const codes=ownedProjectCodes();
+  let rows = codes? DB.logbooks.filter(l=>codes.some(c=>DB.projects.find(p=>p.code===c)?.name===l.project)) : DB.logbooks;
+  rows=rows.filter(l=>l.type.toLowerCase().includes(q)||l.user.toLowerCase().includes(q)||l.project.toLowerCase().includes(q));
+  document.getElementById('logTableWrap').innerHTML=logTableHtml(rows);
+}
+function filterLogsByType(type){
+  const codes=ownedProjectCodes();
+  let rows = codes? DB.logbooks.filter(l=>codes.some(c=>DB.projects.find(p=>p.code===c)?.name===l.project)) : DB.logbooks;
+  if(type!=='all') rows=rows.filter(l=>l.type===type);
+  document.getElementById('logTableWrap').innerHTML=logTableHtml(rows);
+}
+function syncLog(id){
+  supabaseClient.from('logbooks').update({ synced: true }).eq('id', id).then(({ error }) => {
+    if (error) { toast('Lỗi đồng bộ: ' + error.message, 'error'); return; }
+    toast('Đồng bộ thành công!');
+    renderLogbook();
+  });
+}
+function openNewLogModal(){
+  const codes=ownedProjectCodes();
+  const projs=codes?DB.projects.filter(p=>codes.includes(p.code)):DB.projects;
+  openModal('Tạo nhật ký mới',`
+    <div class="field-row">
+      <div class="field"><label>Ngày</label><input id="lg_date" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div class="field"><label>Loại công việc</label>
+        <select id="lg_type">${['Trồng cây','Chăm sóc cây','Bón phân','Kiểm tra sinh trưởng','Tuần tra','Phòng cháy chữa cháy'].map(t=>`<option>${t}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Dự án</label><select id="lg_proj">${projs.map(p=>`<option value="${p.name}">${p.name}</option>`).join('')}</select></div>
+      <div class="field"><label>Vị trí</label><input id="lg_loc" placeholder="Tỉnh/Huyện..."></div>
+    </div>
+    <div class="field"><label>Mô tả công việc</label><textarea id="lg_desc" rows="3" placeholder="Mô tả chi tiết..."></textarea></div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Hủy</button><button class="btn btn-primary" onclick="saveLog()">💾 Lưu</button>`);
+}
+function saveLog(){
+  const newId='LOG-'+String(1000+DB.logbooks.length+1);
+  const proj=DB.projects.find(p=>p.name===document.getElementById('lg_proj').value);
+  const logData = {
+    id: newId,
+    date:document.getElementById('lg_date').value,
+    type:document.getElementById('lg_type').value,
+    user:currentUser.fullName,
+    project:document.getElementById('lg_proj').value,
+    location:document.getElementById('lg_loc').value||proj?.province||'—',
+    lat:proj?.lat||12.3,
+    lng:proj?.lng||108.2,
+    photos:0,
+    desc:document.getElementById('lg_desc').value,
+    synced:true,
+    images: [],
+    // mobile compatibility fields:
+    job_type: document.getElementById('lg_type').value === 'Trồng cây' ? 'planting'
+            : document.getElementById('lg_type').value === 'Chăm sóc cây' ? 'care'
+            : document.getElementById('lg_type').value === 'Tuần tra' ? 'patrol'
+            : document.getElementById('lg_type').value === 'Phòng cháy chữa cháy' ? 'fire_prev'
+            : 'growth_check',
+    description: document.getElementById('lg_desc').value,
+    latitude: proj?.lat||12.3,
+    longitude: proj?.lng||108.2,
+    timestamp: new Date(document.getElementById('lg_date').value).toISOString(),
+    user_id: currentUser.email,
+    user_name: currentUser.fullName,
+    project_id: proj?.code
+  };
+  supabaseClient.from('logbooks').insert(logData).then(({ error }) => {
+    if (error) { toast('Lỗi tạo nhật ký: ' + error.message, 'error'); return; }
+    toast('Đã tạo nhật ký');
+    closeModal();
+    selectedLogId=newId;
+  });
+}
+function openEditLogModal(id){
+  const l=DB.logbooks.find(x=>x.id===id);
+  openModal('Chỉnh sửa nhật ký',`
+    <div class="field"><label>Mô tả</label><textarea id="el_desc" rows="4">${l.desc}</textarea></div>
+    <div class="field"><label>Trạng thái đồng bộ</label>
+      <select id="el_sync"><option value="1" ${l.synced?'selected':''}>Đã đồng bộ</option><option value="0" ${!l.synced?'selected':''}>Chờ đồng bộ</option></select>
+    </div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Hủy</button><button class="btn btn-primary" onclick="saveEditLog('${id}')">💾 Lưu</button>`);
+}
+function saveEditLog(id){
+  supabaseClient.from('logbooks').update({
+    desc: document.getElementById('el_desc').value,
+    description: document.getElementById('el_desc').value, // mobile compatibility
+    synced: document.getElementById('el_sync').value==='1'
+  }).eq('id', id).then(({ error }) => {
+    if (error) { toast('Lỗi cập nhật: ' + error.message, 'error'); return; }
+    toast('Đã cập nhật nhật ký');
+    closeModal();
+  });
+}
+
+/* ====================== MODULE 10: CARBON CALCULATION ====================== */
+function renderCarbon(){
+  const codes=ownedProjectCodes();
+  const cals = codes
+    ? DB.calculations.filter(c=>codes.some(code=>DB.projects.find(p=>p.code===code)?.name===c.project))
+    : DB.calculations;
+
+  document.getElementById('pageContent').innerHTML=`
+    <div class="page-head">
+      <div><h1>Carbon Calculation</h1><p>Ước tính sinh khối & trữ lượng Carbon — Module 10</p></div>
+      <div class="toolbar">
+        <select class="select-sm"><option value="all">Tất cả dự án</option>
+          ${(codes?DB.projects.filter(p=>codes.includes(p.code)):DB.projects).map(p=>`<option>${p.name}</option>`).join('')}
+        </select>
+        <button class="btn btn-primary" onclick="openNewCalcModal()">+ New Calculation</button>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns:1.5fr 1fr; gap:16px;">
+      <div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-head"><h3>Danh sách tính toán</h3></div>
+          ${renderTable([
+            {label:'Calc Code', render:c=>`<span class="mono">${c.code}</span>`},
+            {label:'Project', key:'project'},
+            {label:'Ngày', key:'date'},
+            {label:'Method', key:'method'},
+            {label:'Total Carbon (tC)', render:c=>`<b>${fmtNum(c.carbon,2)}</b>`},
+            {label:'CO₂e (tCO₂e)', render:c=>fmtNum(c.co2e,2)},
+            {label:'Status', render:c=>statusBadge(c.status)},
+          ], cals)}
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>Cấu hình Hệ số loài (Species Factor)</h3></div>
+          ${renderTable([
+            {label:'Loài cây', key:'species'},
+            {label:'Wood Density Factor', key:'factor'},
+            {label:'', render:f=>`<span class="badge badge-info">IPCC Default</span>`},
+          ], DB.speciesFactors)}
+          <div style="margin-top:10px; font-size:12px; color:var(--text-2);">
+            Công thức: <span class="mono" style="background:var(--surface-2); padding:3px 8px; border-radius:6px;">Carbon(tC) = Σ(Biomass × Species_Factor × 0.5) / 1000</span>
+          </div>
+        </div>
+      </div>
+      <div class="card" id="calcSummary">
+        <div class="card-head"><h3>Calculation Summary</h3></div>
+        ${cals.length?calcSummaryHtml(cals[0]):'<div class="empty-state">Chọn một kết quả tính toán</div>'}
+        <div style="margin-top:16px;">
+          <canvas id="chartCalc" height="200"></canvas>
+        </div>
+      </div>
+    </div>`;
+
+  if(cals.length){
+    chartInstances.calc = new Chart(document.getElementById('chartCalc'),{
+      type:'bar',
+      data:{
+        labels:cals.map(c=>c.project.replace(' Project','\nProject')),
+        datasets:[
+          {label:'Biomass (ton)',data:cals.map(c=>c.biomass/1000),backgroundColor:'#E8F5EE',borderColor:'#107C41',borderWidth:2,borderRadius:6},
+          {label:'Carbon (tC)',data:cals.map(c=>c.carbon),backgroundColor:'#107C41',borderRadius:6},
+          {label:'CO₂e (tCO₂e)',data:cals.map(c=>c.co2e),backgroundColor:'#34D399',borderRadius:6},
+        ]
+      },
+      options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}}},
+        scales:{y:{beginAtZero:true,grid:{color:'#EEF2EE'}},x:{grid:{display:false}}}}
+    });
+  }
+}
+function calcSummaryHtml(c){
+  return `
+    <div class="detail-panel">
+      <div class="detail-row"><span class="k">Calculation Code</span><span class="v mono">${c.code}</span></div>
+      <div class="detail-row"><span class="k">Project</span><span class="v">${c.project}</span></div>
+      <div class="detail-row"><span class="k">Ngày tính</span><span class="v">${c.date}</span></div>
+      <div class="detail-row"><span class="k">Method</span><span class="v">${c.method}</span></div>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px;">
+      <div style="background:var(--surface-2); border-radius:12px; padding:14px; text-align:center;">
+        <div style="font-size:18px; font-weight:800; color:var(--primary)">${fmtNum(c.biomass/1000,2)}</div>
+        <div style="font-size:11px; color:var(--text-2); margin-top:2px;">Total Biomass (ton)</div>
+      </div>
+      <div style="background:var(--primary-light); border-radius:12px; padding:14px; text-align:center;">
+        <div style="font-size:18px; font-weight:800; color:var(--primary)">${fmtNum(c.carbon,2)}</div>
+        <div style="font-size:11px; color:var(--text-2); margin-top:2px;">Carbon Stock (tC)</div>
+      </div>
+      <div style="background:#EFF6FF; border-radius:12px; padding:14px; text-align:center; grid-column:span 2;">
+        <div style="font-size:22px; font-weight:800; color:var(--blue)">${fmtNum(c.co2e,2)}</div>
+        <div style="font-size:11px; color:var(--text-2); margin-top:2px;">CO₂ Equivalent (tCO₂e)</div>
+      </div>
+    </div>
+    <div style="margin-top:10px; display:flex; gap:8px;">
+      <button class="btn btn-primary btn-sm" style="flex:1">📄 Xuất báo cáo</button>
+      ${currentUser.role==='platform_admin'?`<button class="btn btn-outline btn-sm" onclick="approveCalc('${c.code}')">✅ Duyệt</button>`:''}
+    </div>`;
+}
+function openNewCalcModal(){
+  const codes=ownedProjectCodes();
+  const projs=codes?DB.projects.filter(p=>codes.includes(p.code)):DB.projects;
+  openModal('Tạo Carbon Calculation mới',`
+    <div class="field"><label>Dự án *</label><select id="cc_proj">${projs.map(p=>`<option value="${p.name}">${p.name}</option>`).join('')}</select></div>
+    <div class="field"><label>Method</label><select id="cc_method"><option>IPCC Default</option><option>Biomass Equation</option></select></div>
+    <div class="banner"><span class="ic">ℹ️</span> Hệ thống sẽ tự tính từ dữ liệu Tree Data (DBH, Chiều cao, Số lượng, Species Factor).</div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Hủy</button><button class="btn btn-primary" onclick="runCalc()">▶ Tính toán</button>`);
+}
+function runCalc(){
+  const projName=document.getElementById('cc_proj').value;
+  const proj=DB.projects.find(p=>p.name===projName);
+  const plots=DB.plots.filter(pl=>pl.projectCode===proj?.code);
+  let totalBiomass=0;
+  plots.forEach(pl=>{
+    DB.trees.filter(t=>t.plotCode===pl.code).forEach(t=>{
+      const sf=DB.speciesFactors.find(f=>f.species===t.species)?.factor||0.48;
+      // Biomass = V × WD × BEF × (1+R) — simplified
+      const vol=(Math.PI*(t.dbh/200)**2)*t.height*t.quantity;
+      totalBiomass+=vol*sf*1.25*1000; // kg
+    });
+  });
+  const carbon=totalBiomass*0.5/1000; // tC
+  const co2e=carbon*3.67;
+  const code='CAL-'+String(DB.calculations.length+1).padStart(4,'0');
+  
+  const calcData = {
+    code,
+    project:projName,
+    date:new Date().toISOString().slice(0,10),
+    method:document.getElementById('cc_method').value,
+    biomass:Math.round(totalBiomass),
+    carbon:Math.round(carbon*100)/100,
+    co2e:Math.round(co2e*100)/100,
+    status:'draft'
+  };
+  
+  supabaseClient.from('calculations').insert(calcData).then(({ error }) => {
+    if (error) { toast('Lỗi lưu tính toán: ' + error.message, 'error'); return; }
+    toast('Tính toán hoàn tất!');
+    closeModal();
+  });
+}
+function approveCalc(code){
+  supabaseClient.from('calculations').update({status:'approved'}).eq('code', code).then(({ error }) => {
+    if (error) { toast('Lỗi duyệt: ' + error.message, 'error'); return; }
+    toast('Đã duyệt kết quả Carbon');
+  });
+}
+/* ====================== MODULE 14: REPORTS ====================== */
+function renderReports(){
+  const codes=ownedProjectCodes();
+  const projs=codes?DB.projects.filter(p=>codes.includes(p.code)):DB.projects;
+  document.getElementById('pageContent').innerHTML=`
+    <div class="page-head"><div><h1>Reports</h1><p>Xuất báo cáo PDF & tổng hợp dữ liệu</p></div></div>
+    <div style="display:grid; grid-template-columns:1.5fr 1fr; gap:16px;">
+      <div class="card">
+        <div class="card-head"><h3>Danh sách báo cáo</h3></div>
+        ${renderTable([
+          {label:'Report Name', render:r=>`<div class="cell-strong">${r.name}</div><div class="cell-sub">${r.desc}</div>`},
+          {label:'Last Generated', key:'lastGen'},
+          {label:'', render:r=>`<button class="btn btn-primary btn-sm" onclick="generateReport('${r.id}')">Generate</button>`},
+        ],[
+          {id:'forest_summary', name:'Forest Summary Report', desc:'Tổng hợp diện tích, loại cây, Carbon', lastGen:'2024-05-20 10:30'},
+          {id:'forest_inventory', name:'Forest Inventory Report', desc:'Plot, DBH, Chiều cao, Số lượng', lastGen:'2024-05-18 15:30'},
+          {id:'activity', name:'Activity Report', desc:'Nhật ký hiện trường theo dự án', lastGen:'2024-05-17 11:45'},
+          {id:'carbon', name:'Carbon Calculation Report', desc:'Ước tính sinh khối và tổng Carbon', lastGen:'2024-05-17 09:15'},
+        ])}
+      </div>
+      <div class="card" id="reportFilters">
+        <div class="card-head"><h3>Report Filters</h3></div>
+        <div class="field"><label>Dự án</label>
+          <select id="rf_proj" class="select-sm" style="width:100%">
+            <option value="all">Tất cả dự án</option>
+            ${projs.map(p=>`<option value="${p.code}">${p.name}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field" style="margin-top:12px;"><label>Date From</label><input type="date" id="rf_from" value="2024-01-01"></div>
+        <div class="field" style="margin-top:10px;"><label>Date To</label><input type="date" id="rf_to" value="${new Date().toISOString().slice(0,10)}"></div>
+        <div class="field" style="margin-top:10px;"><label>Format</label>
+          <select class="select-sm" style="width:100%"><option>PDF</option><option>Excel</option></select>
+        </div>
+        <button class="btn btn-primary" style="width:100%; margin-top:14px;" onclick="toast('Đang tạo báo cáo… Vui lòng chờ.')">📊 Generate Report</button>
+      </div>
+    </div>`;
+}
+function generateReport(id){
+  const labels={
+    forest_summary:'Forest Summary Report',
+    forest_inventory:'Forest Inventory Report',
+    activity:'Activity Report',
+    carbon:'Carbon Calculation Report'
+  };
+  toast('Đang tạo '+labels[id]+'…');
+  setTimeout(()=>toast(labels[id]+' đã sẵn sàng để tải về!'),1800);
+}
+
+/* ====================== MODULE 11: FILES ====================== */
+function renderFiles(){
+  const codes=ownedProjectCodes();
+  const projs=codes?DB.projects.filter(p=>codes.includes(p.code)):DB.projects;
+  document.getElementById('pageContent').innerHTML=`
+    <div class="page-head">
+      <div><h1>Files</h1><p>Quản lý hồ sơ, tài liệu & ảnh hiện trường</p></div>
+      <div class="toolbar">
+        <div class="search-box">🔍 <input placeholder="Tìm tên file..." oninput="filterFiles(this.value)"></div>
+        <select class="select-sm" onchange="filterFilesByCategory(this.value)">
+          <option value="all">Tất cả danh mục</option>
+          ${['Hồ sơ pháp lý','Hồ sơ dự án','Hình ảnh hiện trường','Báo cáo khảo sát'].map(c=>`<option>${c}</option>`).join('')}
+        </select>
+        <button class="btn btn-primary" onclick="openUploadModal()">+ Upload File</button>
+      </div>
+    </div>
+    <div class="card"><div id="filesTableWrap">${filesTableHtml(DB.files)}</div></div>`;
+}
+function filesTableHtml(rows){
+  return renderTable([
+    {label:'Tên file', render:f=>`<div class="cell-strong">📎 ${f.name}</div>`},
+    {label:'Danh mục', render:f=>`<span class="badge badge-info">${f.category}</span>`},
+    {label:'Dự án', key:'project'},
+    {label:'Người upload', key:'uploader'},
+    {label:'Ngày', key:'date'},
+    {label:'Kích thước', key:'size'},
+    {label:'', render:f=>`<div style="display:flex;gap:6px;">
+      <button class="btn btn-outline btn-sm" onclick="toast('Đang tải: ${f.name}')">⬇ Tải về</button>
+      <button class="btn btn-danger-outline btn-sm" onclick="deleteFile('${f.name}')">🗑️</button>
+    </div>`},
+  ], rows, {emptyText:'Chưa có file nào'});
+}
+function filterFiles(q){ q=q.toLowerCase(); document.getElementById('filesTableWrap').innerHTML=filesTableHtml(DB.files.filter(f=>f.name.toLowerCase().includes(q))); }
+function filterFilesByCategory(cat){ document.getElementById('filesTableWrap').innerHTML=filesTableHtml(cat==='all'?DB.files:DB.files.filter(f=>f.category===cat)); }
+function deleteFile(name){
+  if(!confirm('Xóa file '+name+'?')) return;
+  supabaseClient.from('files').delete().eq('name', name).then(({ error }) => {
+    if (error) { toast('Lỗi xóa file: ' + error.message, 'error'); return; }
+    toast('Đã xóa file');
+  });
+}
+function openUploadModal(){
+  const codes=ownedProjectCodes();
+  const projs=codes?DB.projects.filter(p=>codes.includes(p.code)):DB.projects;
+  openModal('Upload File mới',`
+    <div class="field"><label>Chọn file (PDF, JPG, PNG, DOCX, KML)</label>
+      <input type="file" id="uf_file" accept=".pdf,.jpg,.png,.docx,.kml,.zip"></div>
+    <div class="field"><label>Danh mục</label>
+      <select id="uf_cat">${['Hồ sơ pháp lý','Hồ sơ dự án','Hình ảnh hiện trường','Báo cáo khảo sát'].map(c=>`<option>${c}</option>`).join('')}</select>
+    </div>
+    <div class="field"><label>Dự án liên quan</label>
+      <select id="uf_proj">${projs.map(p=>`<option>${p.name}</option>`).join('')}</select>
+    </div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Hủy</button><button class="btn btn-primary" onclick="uploadFile()">⬆ Upload</button>`);
+}
+function uploadFile(){
+  const fileInput=document.getElementById('uf_file');
+  const file = fileInput.files[0];
+  const name = file?.name || 'Demo_File.pdf';
+  
+  if (file) {
+    toast('Đang tải tệp lên Storage...');
+    supabaseClient.storage.from('files').upload(name, file, { upsert: true }).then(({ data, error }) => {
+      if (error) throw error;
+      const { data: { publicUrl } } = supabaseClient.storage.from('files').getPublicUrl(name);
+      return supabaseClient.from('files').insert({
+        name,
+        category:document.getElementById('uf_cat').value,
+        project:document.getElementById('uf_proj').value,
+        uploader:currentUser.fullName,
+        date:new Date().toISOString().slice(0,10),
+        size: (file.size/1024/1024).toFixed(2) + ' MB',
+        url: publicUrl
+      });
+    }).then(({ error }) => {
+      if (error) throw error;
+      toast('Upload thành công: '+name);
+      closeModal();
+    }).catch(err => {
+      toast('Upload thất bại: ' + err.message, 'error');
+    });
+  } else {
+    supabaseClient.from('files').insert({
+      name: 'Demo_File.pdf',
+      category:document.getElementById('uf_cat').value,
+      project:document.getElementById('uf_proj').value,
+      uploader:currentUser.fullName,
+      date:new Date().toISOString().slice(0,10),
+      size:'—',
+      url: '#'
+    }).then(({ error }) => {
+      if (error) { toast('Lỗi upload: ' + error.message, 'error'); return; }
+      toast('Upload thành công (Demo): ' + name);
+      closeModal();
+    });
+  }
+}
+
+/* ====================== MODULE 3: USERS & PHÂN QUYỀN ====================== */
+function renderUsers(){
+  if(currentUser.role!=='platform_admin'){
+    document.getElementById('pageContent').innerHTML=`<div class="empty-state"><div class="ic">🔒</div><div>Chỉ Platform Admin mới có quyền quản lý tài khoản.</div></div>`;
+    return;
+  }
+  document.getElementById('pageContent').innerHTML=`
+    <div class="page-head">
+      <div><h1>Users & Phân quyền</h1><p>Quản lý tài khoản hệ thống — Module 3</p></div>
+      <div class="toolbar">
+        <div class="search-box">🔍 <input placeholder="Tìm tên, email..." oninput="filterUsers(this.value)"></div>
+        <select class="select-sm" onchange="filterUsersByRole(this.value)">
+          <option value="all">Tất cả vai trò</option>
+          <option value="platform_admin">Platform Admin</option>
+          <option value="forest_owner">Forest Owner</option>
+          <option value="forest_worker">Forest Worker</option>
+        </select>
+        <button class="btn btn-primary" onclick="openUserModal()">+ Tạo tài khoản</button>
+      </div>
+    </div>
+    <div class="card"><div id="usersTableWrap">${usersTableHtml(DB.users)}</div></div>`;
+}
+function usersTableHtml(rows){
+  return renderTable([
+    {label:'Mã NV', render:u=>`<span class="mono cell-strong">${u.id}</span>`},
+    {label:'Họ và tên', key:'fullName'},
+    {label:'Email', key:'email'},
+    {label:'Phone', key:'phone'},
+    {label:'Vai trò', render:u=>`<span class="badge badge-info">${roleLabel(u.role)}</span>`},
+    {label:'Trạng thái', render:u=>statusBadge(u.status)},
+    {label:'', render:u=>`<div style="display:flex;gap:6px;">
+      <button class="btn btn-outline btn-sm" onclick="openUserModal('${u.id}')">✏️</button>
+      ${u.id!==currentUser.id?`<button class="btn btn-danger-outline btn-sm" onclick="toggleUserStatus('${u.id}')">🔒</button>`:''}
+    </div>`},
+  ], rows, {emptyText:'Chưa có người dùng'});
+}
+function filterUsers(q){ q=q.toLowerCase(); document.getElementById('usersTableWrap').innerHTML=usersTableHtml(DB.users.filter(u=>u.fullName.toLowerCase().includes(q)||u.email.toLowerCase().includes(q))); }
+function filterUsersByRole(role){ document.getElementById('usersTableWrap').innerHTML=usersTableHtml(role==='all'?DB.users:DB.users.filter(u=>u.role===role)); }
+function openUserModal(id){
+  const u=id?DB.users.find(x=>x.id===id):null;
+  openModal(u?'Sửa tài khoản':'Tạo tài khoản mới',`
+    <div class="field-row">
+      <div class="field"><label>Họ và tên *</label><input id="u_name" value="${u?.fullName||''}"></div>
+      <div class="field"><label>Phone</label><input id="u_phone" value="${u?.phone||''}"></div>
+    </div>
+    <div class="field"><label>Email *</label><input id="u_email" type="email" value="${u?.email||''}"></div>
+    <div class="field-row">
+      <div class="field"><label>Vai trò</label>
+        <select id="u_role">
+          ${['platform_admin','forest_owner','forest_worker'].map(r=>`<option value="${r}" ${u?.role===r?'selected':''}>${roleLabel(r)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Trạng thái</label>
+        <select id="u_status">
+          ${['active','inactive','locked'].map(s=>`<option value="${s}" ${u?.status===s?'selected':''}>${{active:'Hoạt động',inactive:'Không hoạt động',locked:'Đã khóa'}[s]}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    ${!u?`<div class="field"><label>Mật khẩu *</label><input type="password" id="u_pass" placeholder="Tối thiểu 6 ký tự"></div>`:''}`,
+    `<button class="btn btn-outline" onclick="closeModal()">Hủy</button><button class="btn btn-primary" onclick="saveUser('${id||''}')">💾 Lưu</button>`);
+}
+function saveUser(id){
+  const data={fullName:document.getElementById('u_name').value.trim(),
+    phone:document.getElementById('u_phone').value.trim(),
+    email:document.getElementById('u_email').value.trim(),
+    role:document.getElementById('u_role').value,
+    status:document.getElementById('u_status').value};
+  if(!data.fullName||!data.email){toast('Vui lòng nhập đủ Tên và Email','error');return;}
+  if(id){
+    supabaseClient.from('users').update(data).eq('id', id).then(({ error }) => {
+      if (error) { toast('Lỗi cập nhật tài khoản: ' + error.message, 'error'); return; }
+      toast('Đã cập nhật tài khoản');
+      closeModal();
+    });
+  } else {
+    const pass=document.getElementById('u_pass')?.value;
+    if(!pass||pass.length<6){toast('Mật khẩu tối thiểu 6 ký tự','error');return;}
+    supabaseClient.from('users').insert({id:data.email, password:pass,...data}).then(({ error }) => {
+      if (error) { toast('Lỗi tạo tài khoản: ' + error.message, 'error'); return; }
+      toast('Đã tạo tài khoản mới');
+      closeModal();
+    });
+  }
+}
+function toggleUserStatus(id){
+  const u=DB.users.find(x=>x.id===id);
+  const newStatus = u.status==='active'?'locked':(u.status==='locked'?'active':u.status);
+  supabaseClient.from('users').update({status: newStatus}).eq('id', id).then(({ error }) => {
+    if (error) { toast('Lỗi cập nhật trạng thái: ' + error.message, 'error'); return; }
+    toast(newStatus==='active'?'Đã mở khóa tài khoản':'Đã khóa tài khoản');
+  });
+}
+
+/* ====================== MODULE 13: NOTIFICATIONS ====================== */
+function renderNotifications(){
+  const icons={logbook:'📒',project:'🌳',profile:'👤',request:'📌',file:'📎'};
+  document.getElementById('pageContent').innerHTML=`
+    <div class="page-head">
+      <div><h1>Notifications</h1><p>${DB.notifications.filter(n=>!n.read).length} thông báo chưa đọc</p></div>
+      <button class="btn btn-outline btn-sm" onclick="markAllRead()">✓ Đánh dấu tất cả đã đọc</button>
+    </div>
+    <div class="card">
+      ${DB.notifications.map((n,i)=>`
+        <div style="display:flex; gap:14px; padding:14px 0; border-bottom:1px solid var(--border); cursor:pointer; background:${!n.read?'rgba(16,124,65,.03)':'transparent'};" onclick="markRead(${i})">
+          <div style="width:40px; height:40px; border-radius:12px; background:var(--primary-light); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;">${icons[n.type]||'🔔'}</div>
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="font-weight:${n.read?'500':'700'}; font-size:13.5px;">${n.title}</div>
+              ${!n.read?'<span class="badge badge-active" style="font-size:10px;">Mới</span>':''}
+            </div>
+            <div style="font-size:12.5px; color:var(--text-2); margin-top:2px;">${n.desc}</div>
+            <div style="font-size:11.5px; color:var(--text-hint); margin-top:4px;">🕐 ${n.time}</div>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+function markRead(i){
+  const notif = DB.notifications[i];
+  supabaseClient.from('notifications').update({read: true}).eq('title', notif.title).eq('time', notif.time).then(({ error }) => {
+    if (error) console.error('Error marking read:', error);
+  });
+}
+function markAllRead(){
+  supabaseClient.from('notifications').update({read: true}).neq('read', true).then(({ error }) => {
+    if (error) { toast('Lỗi cập nhật: ' + error.message, 'error'); return; }
+    toast('Đã đánh dấu tất cả đã đọc');
+  });
+}
+
+/* ====================== SETTINGS ====================== */
+function renderSettings(){
+  if(currentUser.role!=='platform_admin'){
+    document.getElementById('pageContent').innerHTML=`<div class="empty-state"><div class="ic">🔒</div><div>Chỉ Platform Admin mới có quyền truy cập Settings.</div></div>`;
+    return;
+  }
+  document.getElementById('pageContent').innerHTML=`
+    <div class="page-head"><div><h1>Settings</h1><p>Cấu hình hệ số Carbon & hệ thống</p></div></div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div class="card">
+        <div class="card-head"><h3>Species Factor Configuration</h3><button class="btn btn-primary btn-sm" onclick="openAddFactorModal()">+ Thêm loài</button></div>
+        ${renderTable([
+          {label:'Loài cây', key:'species'},
+          {label:'Factor (Wood Density)', key:'factor'},
+          {label:'Tiêu chuẩn', render:()=>'IPCC Default'},
+          {label:'', render:f=>`<button class="btn btn-outline btn-sm" onclick="editFactor('${f.species}')">Sửa</button>`},
+        ], DB.speciesFactors)}
+        <div style="margin-top:14px; padding:12px; background:var(--surface-2); border-radius:10px; font-size:12px; color:var(--text-2);">
+          <b>Công thức tính Carbon:</b><br>
+          <span class="mono">AGB = V × WD × BEF × (1+R)</span><br>
+          <span class="mono">Carbon = AGB × CF (0.5)</span><br>
+          <span class="mono">CO₂e = Carbon × 3.67</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>Cài đặt hệ thống</h3></div>
+        <div class="field"><label>Tên hệ thống</label><input value="QLR Forest Carbon Management Platform"></div>
+        <div class="field" style="margin-top:12px;"><label>API Endpoint (Mobile App)</label><input class="mono" value="https://api.qlr-forest.vn/v1" style="font-size:12px;"></div>
+        <div class="field" style="margin-top:12px;"><label>JWT Secret Key</label><input type="password" value="qlr_secret_key_2024"></div>
+        <div class="field" style="margin-top:12px;"><label>Múi giờ</label><select><option>Asia/Ho_Chi_Minh (UTC+7)</option></select></div>
+        <div class="field" style="margin-top:12px;"><label>Ngôn ngữ mặc định</label><select><option>Tiếng Việt</option><option>English</option></select></div>
+        <button class="btn btn-primary" style="width:100%; margin-top:18px;" onclick="toast('Đã lưu cài đặt!')">💾 Lưu cài đặt</button>
+      </div>
+    </div>`;
+}
+function openAddFactorModal(){
+  openModal('Thêm Species Factor',`
+    <div class="field"><label>Tên loài cây *</label><input id="sf_sp" placeholder="VD: Lim xanh"></div>
+    <div class="field"><label>Wood Density Factor *</label><input id="sf_f" type="number" step="0.01" placeholder="VD: 0.65"></div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Hủy</button><button class="btn btn-primary" onclick="addFactor()">💾 Lưu</button>`);
+}
+function addFactor(){
+  const sp=document.getElementById('sf_sp').value.trim();
+  const f=Number(document.getElementById('sf_f').value);
+  if(!sp||!f){toast('Vui lòng nhập đủ thông tin','error');return;}
+  const newFactors = [...DB.speciesFactors, {species:sp, factor:f}];
+  supabaseClient.from('settings').update({factors: newFactors}).eq('key', 'speciesFactors').then(({ error }) => {
+    if (error) { toast('Lỗi cập nhật: ' + error.message, 'error'); return; }
+    toast('Đã thêm loài '+sp);
+    closeModal();
+  });
+}
+function editFactor(species){
+  const sf=DB.speciesFactors.find(f=>f.species===species);
+  openModal('Sửa Species Factor: '+species,`
+    <div class="field"><label>Wood Density Factor</label><input id="ef_val" type="number" step="0.01" value="${sf.factor}"></div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Hủy</button><button class="btn btn-primary" onclick="saveFactor('${species}')">💾 Lưu</button>`);
+}
+function saveFactor(species){
+  const newFactor = Number(document.getElementById('ef_val').value);
+  const newFactors = DB.speciesFactors.map(f => f.species === species ? {species, factor: newFactor} : f);
+  supabaseClient.from('settings').update({factors: newFactors}).eq('key', 'speciesFactors').then(({ error }) => {
+    if (error) { toast('Lỗi cập nhật: ' + error.message, 'error'); return; }
+    toast('Đã cập nhật hệ số');
+    closeModal();
+  });
+}
+
+/* Enter key submits login */
+document.getElementById('loginPass').addEventListener('keydown', e=>{ if(e.key==='Enter') login(); });
+</script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "408325359360",
+    "project_id": "qlr-forest-data-management",
+    "storage_bucket": "qlr-forest-data-management.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:408325359360:android:5d617745cdceaa281495e5",
+        "android_client_info": {
+          "package_name": "com.example.qlr_forest_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCZLyqSaVkqfe0keZ6F1Lo92Ygm9RkSrOk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
